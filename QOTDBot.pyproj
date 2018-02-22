@@ -6,8 +6,7 @@
     <ProjectGuid>9a27f9b9-cc7c-4814-8469-1711d0098d33</ProjectGuid>
     <ProjectHome>
     </ProjectHome>
-    <StartupFile>
-    </StartupFile>
+    <StartupFile>QOTDBot.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -29,6 +28,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="QOTDBot.py" />
+    <Compile Include="QuestionKeeper.py">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <Import Condition="Exists($(PtvsTargetsFile))" Project="$(PtvsTargetsFile)" />
   <Import Condition="!Exists($(PtvsTargetsFile))" Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
