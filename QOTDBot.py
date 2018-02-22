@@ -6,7 +6,7 @@ import json
 from slackclient import SlackClient
 
 from QuestionKeeper import *
-
+from ScoreKeeper import *
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -26,6 +26,7 @@ MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 
 # trackers
 questionKeeper = QuestionKeeper()
+scoreKeeper = ScoreKeeper()
 
 #Commands stuff
 #----------------------------------
@@ -72,7 +73,8 @@ def help(messageEvent):
 
 def scores(messageEvent):
     channel, args = messageEvent["channel"], messageEvent["text"]
-    response = "Here's where I'd say what the scores are!"
+    response = scoreKeeper.getTodayScores()
+    response += scoreKeeper.getTotalScores()
     say(channel, response)
     return response
 
@@ -196,7 +198,8 @@ def answer(messageEvent):
     checkResponse = questionKeeper.checkAnswer(messageEvent["user"], identifier, inputAnswer)
 
     if checkResponse == "correct":
-        response = "Correct! I can't give you points yet though, sorry :white_frowning_face:\n"
+        response = "Correct! I'll give you a point\n"
+        addPoint(messageEvent) #We only need the user info from this
     elif checkResponse == "incorrect":
         response = "I think that's incorrect. Though I'm not very good at validating answers yet.\n"
     elif checkResponse == "already answered":
@@ -216,6 +219,36 @@ def hello(messageEvent):
     response = "Hello " + userName + ", I'm QOTD Bot!"
     say(channel, response)
 
+def addPoint(messageEvent):
+    userID = messageEvent["user"]
+    if not scoreKeeper.userExists(userID):
+        scoreKeeper.addNewUser(userID)
+        scoreKeeper.addNameToUser(userID, getNameByID(userID))
+    scoreKeeper.addUserPoint(userID)
+
+def addPoints(messageEvent):
+    userID = messageEvent["user"]
+
+    channel = messageEvent["channel"]
+
+    args = messageEvent["text"].split(' ', 1)
+    numPoints = args[0] if len(args) > 0 else ""
+
+    if numPoints == "help":
+        response += "Usage: "
+    if numPoints in ["help", "usage"]:
+        response += "`add-points [# points]`\n"
+        say(channel, response)
+        return response
+    if len(args) < 1:
+        say(channel, "This command needs more arguments! Type \"add-points help\" for usage")
+        return
+
+    if not scoreKeeper.userExists(userID):
+        scoreKeeper.addNewUser(userID)
+        scoreKeeper.addNameToUser(userID, getNameByID(userID))
+    scoreKeeper.addUserPoints(userID, int(numPoints))
+
 commandsDict = {
     "help" : help,
     "scores" : scores,
@@ -227,7 +260,9 @@ commandsDict = {
     "qs" : questions,
     "publish" : publish,
     "answer" : answer,
-    "hello" : hello
+    "hello" : hello,
+    "add-point" : addPoint,
+    "add-points" : addPoints
 }
 
 
@@ -287,7 +322,7 @@ def handle_command(event):
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
-    func(event)
+    print(func(event))
 
 
 
