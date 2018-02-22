@@ -56,8 +56,8 @@ def getNameByID(userID):
     return userName
 
 
-def checkPublic(channel, response):
-    if not is_channel_private(channel):
+def checkPublic(messageEvent):
+    if not is_event_private(messageEvent):
         return "You can't use this command in a public channel. Message me directly instead"
     else:
         return ""
@@ -76,7 +76,7 @@ def scores(messageEvent):
     say(channel, response)
     return response
 
-def addQuestion(messageEvent):
+def question(messageEvent):
     channel = messageEvent["channel"]
     args = messageEvent["text"].split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
@@ -84,9 +84,14 @@ def addQuestion(messageEvent):
     response = ""
     
     if identifier == "help":
-        response += "Usage: "
+        response += "Usage:\n"
     if identifier in ["help", "usage"]:
-        response += "`question [identifier] [question] : <answer>`\n"
+        response += "`question [identifier] [question] : <answer>`\n"\
+                 +  "`question [identifier] remove`\n"
+        say(channel, response)
+        return response
+    if identifier == "remove":
+        response += "You probably meant to use `question [identifier] remove`\n"
         say(channel, response)
         return response
     if len(args) < 2:
@@ -96,56 +101,112 @@ def addQuestion(messageEvent):
     args = args[1] #no longer holding identifier
     colonIndex = args.rfind(":")
     if colonIndex == -1:
-        question = args
-        answer == ""
+        question = args.strip()
+        answer = ""
     else:
-        question = args[:colonIndex].rstrip()
-        answer = args[colonIndex+1:].lstrip()
+        question = args[:colonIndex].strip()
+        answer = args[colonIndex+1:].strip()
 
+    if question == "remove":
+        if questionKeeper.removeQuestion(identifier):
+            response = "Okay, I removed that question"
+            say(channel, response)
+            return response
+        else:
+            response = "I didn't find a question with that ID"
+            say(channel, response) 
+            return response
 
-    #only get here if a valid question format is given
-    questionKeeper.addQuestion(userID = messageEvent["user"], qID = identifier, questionText = question, correctAnswer = answer)
-    print(questionKeeper.questionList[0].qID + ";")
-    print(questionKeeper.questionList[0].questionText + ";")
-    print(questionKeeper.questionList[0].correctAnswer + ";")
+    #only get here if a valid question input format is given
+    questionAdded = questionKeeper.addQuestion(userID = messageEvent["user"], qID = identifier, questionText = question, correctAnswer = answer)
+    
+    if questionAdded:
+        response = "Okay, I added your question with ID " + identifier + ".\n"\
+                 + "Use `publish` to make your questions publicly available, "\
+                 + "or `remove` to remove it"
+    else:
+        response = "A question with this ID already exists right now. Please use a different one"
+
     say(channel, response)
     return response
 
-def addSomething(messageEvent):
-    channel, args = messageEvent["channel"], messageEvent["text"].split(' ')
-    response = ""
-    if len(args) < 1:
-        say(channel, "This command needs more arguments! Type \"question help\" for usage")
-        return
-    if args[0].lower() == "help":
+def questions(messageEvent):
+    output = questionKeeper.listQuestions()
+    
+    if output == "":
+        output = "There are no currently active questions"
+    else:
+        output = "Here are all the currently active questions:\n" + output
+    
+    say(messageEvent["channel"], output)
+    return output
+
+def publish(messageEvent):
+    channel = messageEvent["channel"]
+
+    args = messageEvent["text"].split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    if identifier == "help":
         response += "Usage: "
-    if args[0].lower() in ["help", "usage"]:
-        response += "`add question`\n"
+    if identifier in ["help", "usage"]:
+        response += "`publish <identifier>`\n"
         say(channel, response)
         return response
+    if identifier != "":
+        publishResponse = questionKeeper.publishByID(identifier)
+        if publishResponse == "published":
+            response = "Okay, I published question " + identifier + ".\n"
+        elif publishResponse == "already published":
+            response = identifier + " is already published.\n"
+        else:
+            response = "I couldn't find a question with that ID.\n"
+    else:
+        questionKeeper.publishAllByUser(messageEvent["user"])
+        response = "Okay, I've published all of your questions\n"
 
-    #only get here if a valid question format is given
-    if args[0].lower() in ["question", "questions"]:
-       slack_client.api_call(
-          "chat.postMessage",
-          as_user=True,
-          channel=channel,
-          text="Click the button to submit a question!",
-          attachments=[{
-            "text": "",
-            "callback_id": channel + "add_question_form",
-            "color": "#3AA3E3",
-            "attachment_type": "default",
-            "actions": [{
-              "name": "add_question_button",
-              "text": "Add Question",
-              "type": "button",
-              "value": "add_question_button"
-            }]
-          }]
-        )
-    
+    say(channel, response)
     return response
+    
+
+
+def answer(messageEvent):
+    channel = messageEvent["channel"]
+
+    args = messageEvent["text"].split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    response = checkPublic(messageEvent)
+
+    if response != "":
+        say(channel, response)
+        return response
+    
+    if identifier == "help":
+        response += "Usage: "
+    if identifier in ["help", "usage"]:
+        response += "`answer [identifier] [your answer]`\n"
+        say(channel, response)
+        return response
+    if len(args) < 2:
+        say(channel, "This command needs more arguments! Type \"answer help\" for usage")
+        return
+    
+    inputAnswer = args[1] #no longer holding identifier
+    checkResponse = questionKeeper.checkAnswer(messageEvent["user"], identifier, inputAnswer)
+
+    if checkResponse == "correct":
+        response = "Correct! I can't give you points yet though, sorry :white_frowning_face:\n"
+    elif checkResponse == "incorrect":
+        response = "I think that's incorrect. Though I'm not very good at validating answers yet.\n"
+    elif checkResponse == "already answered":
+        response = "You already answered that question!"
+    else:
+        response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
+
+    say(channel, response)
+    return response
+
 
 def hello(messageEvent):
     channel, userID = messageEvent["channel"], messageEvent["user"]
@@ -160,8 +221,12 @@ commandsDict = {
     "scores" : scores,
     "score" : scores,
     "points" : scores,
-    "question" : addQuestion,
-    "add" : addSomething,
+    "question" : question,
+    "q" : question,
+    "questions" : questions,
+    "qs" : questions,
+    "publish" : publish,
+    "answer" : answer,
     "hello" : hello
 }
 
@@ -171,9 +236,9 @@ commandsDict = {
 def is_channel_private(channel):
     return channel.startswith('D')
 
-def is_event_private(event):
+def is_event_private(messageEvent):
     """Checks if private slack channel"""
-    return event.get('channel').startswith('D')
+    return messageEvent['channel'].startswith('D')
 
 
 def parse_bot_commands(slack_events):
