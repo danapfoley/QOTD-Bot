@@ -109,8 +109,8 @@ class ScoreKeeper:
         if self.data[self.todayRowNum][columnNum] == "":
             self.data[self.todayRowNum][columnNum] = 0
 
-        self.data[self.todayRowNum][columnNum] += numPoints
-        self.data[self.totalsRowNum][columnNum] += numPoints
+        self.data[self.todayRowNum][columnNum]  = int(self.data[self.todayRowNum][columnNum]) + numPoints
+        self.data[self.totalsRowNum][columnNum] = int(self.data[self.totalsRowNum][columnNum]) + numPoints
         self.updateFileWithData()
 
     def getDataFromFile(self):

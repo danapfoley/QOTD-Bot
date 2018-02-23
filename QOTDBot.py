@@ -46,7 +46,6 @@ def getNameByID(userID):
         token = SLACK_BOT_TOKEN,
         user = userID
     )
- 
     if attemptedNameJson["ok"]:
         if attemptedNameJson["user"]["profile"]["display_name"] != "":
             userName = attemptedNameJson["user"]["profile"]["display_name"]
@@ -57,6 +56,8 @@ def getNameByID(userID):
 
     return userName
 
+
+
 def getDirectChannel(userID):
     dmChannel = slack_client.api_call(
         "conversations.open",
@@ -65,23 +66,52 @@ def getDirectChannel(userID):
 
     return dmChannel["channel"]["id"]
 
-
 def checkPublic(messageEvent):
     if not is_event_private(messageEvent):
         return "You can't use this command in a public channel. Message me directly instead"
     else:
         return ""
 
+
+
 def help(messageEvent):
-    channel, args = messageEvent["channel"], messageEvent["text"]
+    channel, args, userID = messageEvent["channel"], messageEvent["text"], messageEvent["user"]
     response = ""
     if args:
         response += "Not sure what you meant by \"" + args + "\", but here's some help if you need it!\n"
-    response += "(Some helpful stuff)"
-    say(channel, response)
+
+    funcs = []
+    for key, func in commandsDict.items():
+        if key != "help":
+            funcs.append(func)
+    funcs = set(funcs) 
+    for func in funcs:
+        response += func({"type":"message", "channel":channel, "user":userID, "text":"allHelps"}) + "\n"
+    
+    #sort the responses alphabetically and remove extra stuff
+    sortedLines = sorted(response.split('\n'))
+    sortedLines = [line for line in sortedLines if line not in ["","\n"]]
+    response = '\n\n'.join(sortedLines)
+
+    say(channel, "Here's a list of commands I know:\n" + response)
+    return response
 
 def scores(messageEvent):
-    channel, args = messageEvent["channel"], messageEvent["text"]
+    channel, args = messageEvent["channel"], messageEvent["text"].split(' ', 1)
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`scores` - prints a list of today's scores and running totals"
+        if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
+    
+
     response = scoreKeeper.getTodayScores()
     response += scoreKeeper.getTotalScores()
     say(channel, response)
@@ -96,11 +126,15 @@ def question(messageEvent):
     
     if identifier == "help":
         response += "Usage:\n"
-    if identifier in ["help", "usage"]:
+    if identifier in ["help", "usage", "allHelps"]:
         response += "`question [identifier] [question] : <answer>`\n"\
                  +  "`question [identifier] remove`\n"
+    if identifier == "allHelps":
+        return response
+    if response != "":
         say(channel, response)
         return response
+
     if identifier == "remove":
         response += "You probably meant to use `question [identifier] remove`\n"
         say(channel, response)
@@ -142,15 +176,30 @@ def question(messageEvent):
     return response
 
 def questions(messageEvent):
-    output = questionKeeper.listQuestions()
+    channel, args = messageEvent["channel"], messageEvent["text"].split(' ', 1)
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`questions` - prints a list of today's questions"
+        if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
     
-    if output == "":
-        output = "There are no currently active questions"
+    response = questionKeeper.listQuestions()
+
+    if response == "":
+        response = "There are no currently active questions"
     else:
-        output = "Here are all the currently active questions:\n" + output
+        response = "Here are all the currently active questions:\n" + response
     
-    say(messageEvent["channel"], output)
-    return output
+    say(channel, response)
+    return response
 
 def publish(messageEvent):
     channel = messageEvent["channel"]
@@ -158,10 +207,15 @@ def publish(messageEvent):
     args = messageEvent["text"].split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
+    response = ""
+
     if identifier == "help":
         response += "Usage: "
-    if identifier in ["help", "usage"]:
+    if identifier in ["help", "usage", "allHelps"]:
         response += "`publish <identifier>`\n"
+    if identifier == "allHelps":
+        return response
+    if response != "":
         say(channel, response)
         return response
     if identifier != "":
@@ -191,27 +245,32 @@ def answer(messageEvent):
     args = messageEvent["text"].split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
-    response = checkPublic(messageEvent)
-
-    if response != "":
-        say(channel, response)
-        return response
+    response = ""
     
     if identifier == "help":
         response += "Usage: "
-    if identifier in ["help", "usage"]:
+    if identifier in ["help", "usage", "allHelps"]:
         response += "`answer [identifier] [your answer]`\n"
+    if args[0] == "allHelps":
+            return response
+    if response != "":
         say(channel, response)
         return response
     if len(args) < 2:
         say(channel, "This command needs more arguments! Type \"answer help\" for usage")
         return
+
+    response = checkPublic(messageEvent)
+    if response != "":
+        say(channel, response)
+        return response
     
     inputAnswer = args[1] #no longer holding identifier
     checkResponse = questionKeeper.checkAnswer(messageEvent["user"], identifier, inputAnswer)
 
     if checkResponse == "correct":
         response = "Correct! I'll give you a point\n"
+        messageEvent["text"] = messageEvent["user"]
         addPoint(messageEvent)
     elif checkResponse == "incorrect":
         response = "I think that's incorrect. Though I'm not very good at validating answers yet.\n"
@@ -219,10 +278,10 @@ def answer(messageEvent):
         response = "You already answered that question!"
     elif checkResponse == "needsManual":
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
-        response = "This question needs to be validated manually. I'll ask " + userWhoSubmitted + " to check your answer."
+        response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
         directUserChannel = getDirectChannel(userWhoSubmitted)
         say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
-            + "\nIs this correct?\n(I don't know how to respond to this yet)")
+            + "\nIs this correct?\n(I don't know how to validate answers this way yet)")
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
 
@@ -231,16 +290,55 @@ def answer(messageEvent):
 
 
 def hello(messageEvent):
-    channel, userID = messageEvent["channel"], messageEvent["user"]
+    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`hello` - says hi back and some basic information"
+    if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
+
 
     userName = getNameByID(userID)
 
     response = "Hello " + userName + ", I'm QOTD Bot!"
-    response += "\nUser ID: " + userID + "\nChannel ID: " + channel
+    response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel
     say(channel, response)
 
 def addPoint(messageEvent):
-    userID = messageEvent["user"]
+    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        refID = args[0]
+        if refID == "help":
+            response += "Usage:\n"
+        if refID in ["help", "usage", "allHelps"]:
+            response += "`add-point <user>` - gives a point to <user> if given, gives a point to you if left blank"
+        if refID == "allHelps":
+            return response
+        if response != "":
+            say(channel, response)
+            return response
+        
+        for char in "<>@":
+            refID = refID.replace(char, "")
+        refID = refID.strip()
+        if getNameByID(refID) != refID: #if user name is valid
+            userID = refID
+        else:
+            response = "I couldn't find that user. User `add-point help` for usage instructions"
+            say(channel, response)
+            return response
+
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
@@ -256,10 +354,15 @@ def addPoints(messageEvent):
     args = messageEvent["text"].split(' ', 1)
     numPoints = args[0] if len(args) > 0 else ""
 
+    response = ""
+
     if numPoints == "help":
         response += "Usage: "
-    if numPoints in ["help", "usage"]:
+    if numPoints in ["help", "usage", "allHelps"]:
         response += "`add-points [# points]`\n"
+    if numPoints == "allHelps":
+        return response
+    if response != "":
         say(channel, response)
         return response
     if len(args) < 1:
@@ -272,7 +375,24 @@ def addPoints(messageEvent):
     scoreKeeper.addUserPoints(userID, int(numPoints))
 
 def channelID(messageEvent):
-    say(messageEvent["channel"],"The channel we're in now is: " + messageEvent["channel"])
+    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`channel-id` - gets the id of the current channel. Used for debugging"
+        if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
+
+    response = "The channel we're in now is: " + channel
+    say(channel, response)
+    return response
 
 commandsDict = {
     "help" : help,
@@ -287,6 +407,8 @@ commandsDict = {
     "answer" : answer,
     "a" : answer,
     "hello" : hello,
+    "hi" : hello,
+    "hola" : hello,
     "add-point" : addPoint,
     "add-points" : addPoints,
     "channel-id" : channelID
@@ -313,7 +435,7 @@ def parse_bot_commands(slack_events):
         if event["type"] == "message" and not "subtype" in event:
             processedEvent = parse_direct_mention(event)
             if processedEvent:
-                print(getNameByID(event["user"]) + "says: " + event["text"])
+                print(getNameByID(event["user"]) + " says: " + event["text"])
                 return processedEvent
     return None
 
