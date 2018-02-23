@@ -9,6 +9,7 @@ class Question:
         self.initTime = time.time()
         self.publishTime = 0
         self.published = False
+        self.justPublished = False
         self.answeredBy = []
 
     def checkAnswer(self, userID, inputAnswer):
@@ -28,6 +29,7 @@ class Question:
             return False
         else:
             self.published = True
+            self.justPublished = True
             return True
 
 class QuestionKeeper:
@@ -56,11 +58,20 @@ class QuestionKeeper:
 
         return None
 
+    def getSubmitterByQID(self, qID):
+        q = self.getQuestionByID(qID)
+        if q:
+            return q.userID
+        else:
+            return None
+
     def checkAnswer(self, userID, qID, inputAnswer):
         q = self.getQuestionByID(qID)
         if q and q.published:
             if userID in q.answeredBy:
                 return "already answered"
+            elif q.correctAnswer == "":
+                return "needsManual"
             elif q.checkAnswer(userID, inputAnswer):
                 return "correct"
             return "incorrect"
@@ -87,6 +98,14 @@ class QuestionKeeper:
         for q in self.questionList:
             if q.userID == userID:
                 q.publish()
+
+    def firstTimeDisplay(self):
+        output = ""
+        for q in self.questionList:
+            if q.justPublished:
+                q.justPublished = False
+                output += q.prettyPrint() + "\n"
+        return output
 
 
 

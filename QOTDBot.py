@@ -22,6 +22,7 @@ bot_id = "UNKNOWN"
 RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 HELP_COMMAND = "help"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
+QOTD_CHANNEL = "G9DHWHZP1"
 
 
 # trackers
@@ -55,6 +56,14 @@ def getNameByID(userID):
         userName = userID
 
     return userName
+
+def getDirectChannel(userID):
+    dmChannel = slack_client.api_call(
+        "conversations.open",
+        users = userID
+    )
+
+    return dmChannel["channel"]["id"]
 
 
 def checkPublic(messageEvent):
@@ -167,13 +176,17 @@ def publish(messageEvent):
         questionKeeper.publishAllByUser(messageEvent["user"])
         response = "Okay, I've published all of your questions\n"
 
+    newQuestions = questionKeeper.firstTimeDisplay()
+    if newQuestions != "":
+        say(QOTD_CHANNEL, "New questions: " + newQuestions)
+
     say(channel, response)
     return response
     
 
 
 def answer(messageEvent):
-    channel = messageEvent["channel"]
+    channel, userID = messageEvent["channel"], messageEvent["user"]
 
     args = messageEvent["text"].split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
@@ -199,11 +212,17 @@ def answer(messageEvent):
 
     if checkResponse == "correct":
         response = "Correct! I'll give you a point\n"
-        addPoint(messageEvent) #We only need the user info from this
+        addPoint(messageEvent)
     elif checkResponse == "incorrect":
         response = "I think that's incorrect. Though I'm not very good at validating answers yet.\n"
     elif checkResponse == "already answered":
         response = "You already answered that question!"
+    elif checkResponse == "needsManual":
+        userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
+        response = "This question needs to be validated manually. I'll ask " + userWhoSubmitted + " to check your answer."
+        directUserChannel = getDirectChannel(userWhoSubmitted)
+        say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
+            + "\nIs this correct?\n(I don't know how to respond to this yet)")
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
 
@@ -217,6 +236,7 @@ def hello(messageEvent):
     userName = getNameByID(userID)
 
     response = "Hello " + userName + ", I'm QOTD Bot!"
+    response += "\nUser ID: " + userID + "\nChannel ID: " + channel
     say(channel, response)
 
 def addPoint(messageEvent):
@@ -225,6 +245,8 @@ def addPoint(messageEvent):
         scoreKeeper.addNewUser(userID)
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
     scoreKeeper.addUserPoint(userID)
+
+    say(QOTD_CHANNEL, "Point for " + getNameByID(userID) + "!")
 
 def addPoints(messageEvent):
     userID = messageEvent["user"]
@@ -249,6 +271,9 @@ def addPoints(messageEvent):
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
     scoreKeeper.addUserPoints(userID, int(numPoints))
 
+def channelID(messageEvent):
+    say(messageEvent["channel"],"The channel we're in now is: " + messageEvent["channel"])
+
 commandsDict = {
     "help" : help,
     "scores" : scores,
@@ -260,9 +285,11 @@ commandsDict = {
     "qs" : questions,
     "publish" : publish,
     "answer" : answer,
+    "a" : answer,
     "hello" : hello,
     "add-point" : addPoint,
-    "add-points" : addPoints
+    "add-points" : addPoints,
+    "channel-id" : channelID
 }
 
 
@@ -286,7 +313,7 @@ def parse_bot_commands(slack_events):
         if event["type"] == "message" and not "subtype" in event:
             processedEvent = parse_direct_mention(event)
             if processedEvent:
-                print("received direct mention from " + event["user"] + ": " + event["text"])
+                print(getNameByID(event["user"]) + "says: " + event["text"])
                 return processedEvent
     return None
 
@@ -322,7 +349,9 @@ def handle_command(event):
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
-    print(func(event))
+    output = func(event)
+    if output:
+        print("QOTD Bot says: " + output)
 
 
 

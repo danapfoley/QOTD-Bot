@@ -58,8 +58,8 @@ class ScoreKeeper:
         numRows = len(reader)
         rowLength = len(reader[0])
 
-        today = datetime.today()
-        lastDate = datetime.strptime(reader[-1][0], "%m/%d/%Y")
+        today = datetime.today().date()
+        lastDate = datetime.strptime(reader[-1][0], "%m/%d/%Y").date()
         newData=[]
         if lastDate < today:
             needsCatchUp = True
