@@ -22,7 +22,9 @@ bot_id = "UNKNOWN"
 RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 HELP_COMMAND = "help"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
-QOTD_CHANNEL = "G9DHWHZP1"
+DEBUG_CHANNEL = "G9DHWHZP1"
+QOTD_CHANNEL = DEBUG_CHANNEL
+PUBLIC_TEST_CHANNEL = DEBUG_CHANNEL #"C9DBNUYNL"
 
 
 # trackers
@@ -39,6 +41,7 @@ def say(channel, response):
         text=response,
         icon_emoji=':robot_face:'
     )
+    print("QOTD Bot says: ", response)
 
 def getNameByID(userID):
     attemptedNameJson = slack_client.api_call(
@@ -72,6 +75,12 @@ def checkPublic(messageEvent):
     else:
         return ""
 
+def checkPrivate(messageEvent):
+    if is_event_private(messageEvent):
+        return "You can't use this command in a private channel. Use the public channel instead"
+    else:
+        return ""
+
 
 
 def help(messageEvent):
@@ -100,13 +109,26 @@ def scores(messageEvent):
     channel, args = messageEvent["channel"], messageEvent["text"].split(' ', 1)
     response = ""
 
-    if len(args) > 0:
+    if len(args) > 0 and args[0] != "":
         if args[0] == "help":
             response += "Usage:\n"
         if args[0] in ["help", "usage", "allHelps"]:
             response += "`scores` - prints a list of today's scores and running totals"
         if args[0] == "allHelps":
             return response
+
+        userID = args[0]
+        for char in "<>@":
+            userID = userID.replace(char, "")
+        userID = userID.strip()
+        print(userID)
+        if getNameByID(userID) != userID: #if user name is valid
+            response = scoreKeeper.getUserScores(userID)
+        else:
+            response = "I couldn't find that user. Use `add-point help` for usage instructions"
+        
+        say(channel, response)
+        return response
     if response != "":
         say(channel, response)
         return response
@@ -273,9 +295,12 @@ def answer(messageEvent):
         messageEvent["text"] = messageEvent["user"]
         addPoint(messageEvent)
     elif checkResponse == "incorrect":
-        response = "I think that's incorrect. Though I'm not very good at validating answers yet.\n"
+        guessesLeft = MAX_GUESSES - questionKeeper.getQuestionByID(identifier).guesses[userID]
+        response = "Incorrect. You have " + str(guessesLeft) + (" guesses left." if guessesLeft != 1 else " guess left.")
     elif checkResponse == "already answered":
         response = "You already answered that question!"
+    elif checkResponse == "max guesses":
+        response = "You've already guessed the maximum number of times, " + str(MAX_GUESSES) + "."
     elif checkResponse == "needsManual":
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
         response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
@@ -315,7 +340,9 @@ def hello(messageEvent):
 def addPoint(messageEvent):
     channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
 
-    response = ""
+    if response != "":
+        say(channel, response)
+        return response
 
     if len(args) > 0:
         refID = args[0]
@@ -335,7 +362,7 @@ def addPoint(messageEvent):
         if getNameByID(refID) != refID: #if user name is valid
             userID = refID
         else:
-            response = "I couldn't find that user. User `add-point help` for usage instructions"
+            response = "I couldn't find that user. Use `add-point help` for usage instructions"
             say(channel, response)
             return response
 
@@ -347,32 +374,51 @@ def addPoint(messageEvent):
     say(QOTD_CHANNEL, "Point for " + getNameByID(userID) + "!")
 
 def addPoints(messageEvent):
-    userID = messageEvent["user"]
-
     channel = messageEvent["channel"]
 
     args = messageEvent["text"].split(' ', 1)
-    numPoints = args[0] if len(args) > 0 else ""
+
+    if len(args) < 1 or args[0] == "":
+        response = "This command needs more arguments! Type \"add-points help\" for usage"
+        say(channel, response)
+        return response
+
+    userID = args[0]
+    numPoints = args[1] if len(args) >= 2 else 1
 
     response = ""
 
-    if numPoints == "help":
+    if userID == "help":
         response += "Usage: "
-    if numPoints in ["help", "usage", "allHelps"]:
-        response += "`add-points [# points]`\n"
-    if numPoints == "allHelps":
+    if userID in ["help", "usage", "allHelps"]:
+        response += "`add-point(s) [@user] <# points>`\n"
+    if userID == "allHelps":
         return response
     if response != "":
         say(channel, response)
         return response
-    if len(args) < 1:
-        say(channel, "This command needs more arguments! Type \"add-points help\" for usage")
-        return
+
+    response = checkPrivate(messageEvent)
+    if response != "":
+        say(channel, response)
+        return response
+
+    for char in "<>@":
+        userID = userID.replace(char, "")
+    userID = userID.strip()
+    if getNameByID(userID) == userID: #if user name is invalid
+        response = "I couldn't find that user. Use `add-point help` for usage instructions"
+        say(channel, response)
+        return response
 
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
     scoreKeeper.addUserPoints(userID, int(numPoints))
+
+    response = "Okay, I gave " + str(numPoints) + " points to " + getNameByID(userID)
+    say(QOTD_CHANNEL, response)
+    return response
 
 def channelID(messageEvent):
     channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
@@ -394,6 +440,33 @@ def channelID(messageEvent):
     say(channel, response)
     return response
 
+def expireOldQuestions(messageEvent):
+    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`expire-old-questions` - removes all questions published more than 24 hours ago"
+        if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
+
+    expiredQuestions = questionKeeper.expireQuestions()
+    if len(expiredQuestions) > 0:
+        response = "The following questions have expired: "
+        response += ', '.join(expiredQuestions)
+    else:
+        response = "No questions older than 24 hours were found"
+
+    say(channel, response)
+    return response
+
+
 commandsDict = {
     "help" : help,
     "scores" : scores,
@@ -409,9 +482,10 @@ commandsDict = {
     "hello" : hello,
     "hi" : hello,
     "hola" : hello,
-    "add-point" : addPoint,
+    "add-point" : addPoints,
     "add-points" : addPoints,
-    "channel-id" : channelID
+    "channel-id" : channelID,
+    "expire-old-questions" : expireOldQuestions
 }
 
 
@@ -468,13 +542,14 @@ def handle_command(event):
     command_id = splitArguments[0].lower()
 
     event["text"] = splitArguments[1] if len(splitArguments) > 1 else ""
+    if command_id == "say-shutdown":
+        say(PUBLIC_TEST_CHANNEL, "Shutting down for a while. Beep boop.")
+    if command_id == "say-startup":
+        say(PUBLIC_TEST_CHANNEL, "Starting up for the day! Beep boop.")
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
-    output = func(event)
-    if output:
-        print("QOTD Bot says: " + output)
-
+    func(event)
 
 
 

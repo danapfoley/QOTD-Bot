@@ -3,9 +3,10 @@ from tempfile import NamedTemporaryFile
 import shutil
 from datetime import date, datetime, timedelta
 
+SCORES_FILE_NAME = "scores.csv"
+
 class ScoreKeeper:
     def __init__(self):
-        self.fileName = "scores.csv"
         self.data = []
         self.todayRowNum = -1 #error value
         self.totalsRowNum = 2 #manually set
@@ -38,20 +39,40 @@ class ScoreKeeper:
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
         return "Total scores: " + ", ".join(scoresList)
+
+    def getUserScores(self, userID):
+        output = ""
+        todayScore = ""
+        totalScore = ""
+
+        if self.userExists(userID):
+            column = self.getUserColumnNum(userID)
+            todayScore = str(self.data[self.todayRowNum][column])
+            totalScore = str(self.data[self.totalsRowNum][column])
+
+        if todayScore != "":
+            output += self.data[self.userNameRowNum][column] + "'s points from today: " + todayScore + '\n'
+        if totalScore != "":
+            output += self.data[self.userNameRowNum][column] + "'s total points: " + totalScore
+            
+        if output == "":
+            output = "I couldn't find any score data for that user"
+
+        return output
         
     def updateFileWithData(self):
         tempfile = NamedTemporaryFile(delete=False)
-        with open(self.fileName, 'w', newline='') as tempfile:
+        with open(SCORES_FILE_NAME, 'w', newline='') as tempfile:
             writer = csv.writer(tempfile)
 
             for row in self.data:
                 writer.writerow(row)
 
-        shutil.move(tempfile.name, self.fileName)
+        shutil.move(tempfile.name, SCORES_FILE_NAME)
 
 
     def catchUpDateRows(self):
-        file = open(self.fileName,"r")
+        file = open(SCORES_FILE_NAME,"r")
         reader = list(csv.reader(file))
         file.close()
         
@@ -72,7 +93,7 @@ class ScoreKeeper:
             newData.append([lastDate.strftime("%m/%d/%Y")] + ([""] * rowLength))
 
         if needsCatchUp:
-            file = open(self.fileName, "a", newline='')
+            file = open(SCORES_FILE_NAME, "a", newline='')
             writer = csv.writer(file)
             writer.writerows(newData)
             file.close()
@@ -114,7 +135,7 @@ class ScoreKeeper:
         self.updateFileWithData()
 
     def getDataFromFile(self):
-        file = open(self.fileName,"r")
+        file = open(SCORES_FILE_NAME,"r")
         self.data = list(csv.reader(file))
         file.close()
 
