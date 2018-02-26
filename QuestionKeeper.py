@@ -33,6 +33,9 @@ class Question:
     def prettyPrint(self):
         return "(" + self.qID + "): " + self.questionText
 
+    def prettyPrintWithAnswer(self):
+        return "(" + self.qID + "): " + self.questionText + " : " + self.correctAnswer
+
     def publish(self):
         if self.published:
             return False
@@ -142,6 +145,13 @@ class QuestionKeeper:
         for q in self.questionList:
             if q.published:
                 output += q.prettyPrint() + "\n"
+        return output
+
+    def listQuestionsByUser(self, userID):
+        output = ""
+        for q in self.questionList:
+            if q.userID == userID:
+                output += q.prettyPrintWithAnswer() + (" (published)" if q.published else "") + "\n"
         return output
 
     def expireQuestions(self):

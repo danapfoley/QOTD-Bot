@@ -23,8 +23,7 @@ RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 HELP_COMMAND = "help"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
-QOTD_CHANNEL = DEBUG_CHANNEL
-PUBLIC_TEST_CHANNEL = DEBUG_CHANNEL #"C9DBNUYNL"
+QOTD_CHANNEL = DEBUG_CHANNEL #"C9DBNUYNL"
 
 
 # trackers
@@ -35,13 +34,18 @@ scoreKeeper = ScoreKeeper()
 #----------------------------------
 
 def say(channel, response):
-    slack_client.api_call(
-        "chat.postMessage",
-        channel=channel,
-        text=response,
-        icon_emoji=':robot_face:'
-    )
-    print("QOTD Bot says: ", response)
+    try:
+        slack_client.api_call(
+            "chat.postMessage",
+            channel=channel,
+            text=response,
+            icon_emoji=':robot_face:'
+        )
+        print("QOTD Bot says: ", response)
+    except ValueError:
+        print("QOTD Bot failed to say: ", response)
+
+
 
 def getNameByID(userID):
     attemptedNameJson = slack_client.api_call(
@@ -77,7 +81,7 @@ def checkPublic(messageEvent):
 
 def checkPrivate(messageEvent):
     if is_event_private(messageEvent):
-        return "You can't use this command in a private channel. Use the public channel instead"
+        return "You can't suse this command in a private channel. Use the public channel instead"
     else:
         return ""
 
@@ -113,8 +117,12 @@ def scores(messageEvent):
         if args[0] == "help":
             response += "Usage:\n"
         if args[0] in ["help", "usage", "allHelps"]:
-            response += "`scores` - prints a list of today's scores and running totals"
+            response += "`scores <@ user>` - prints a list of today's scores and running totals, for `<@ user>` if given, for everyone otherwise"
         if args[0] == "allHelps":
+            return response
+
+        if response != "":
+            say(channel, response)
             return response
 
         userID = args[0]
@@ -125,7 +133,7 @@ def scores(messageEvent):
         if getNameByID(userID) != userID: #if user name is valid
             response = scoreKeeper.getUserScores(userID)
         else:
-            response = "I couldn't find that user. Use `add-point help` for usage instructions"
+            response = "I couldn't find that user. Use `scores help` for usage instructions"
         
         say(channel, response)
         return response
@@ -149,8 +157,8 @@ def question(messageEvent):
     if identifier == "help":
         response += "Usage:\n"
     if identifier in ["help", "usage", "allHelps"]:
-        response += "`question [identifier] [question] : <answer>`\n"\
-                 +  "`question [identifier] remove`\n"
+        response += "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
+            +  "`question [identifier] remove` - removes the question with the corresponding ID.\n"
     if identifier == "allHelps":
         return response
     if response != "":
@@ -177,6 +185,8 @@ def question(messageEvent):
     if question == "remove":
         if questionKeeper.removeQuestion(identifier):
             response = "Okay, I removed that question"
+            print(channel)
+            print(response)
             say(channel, response)
             return response
         else:
@@ -206,7 +216,7 @@ def questions(messageEvent):
         if args[0] == "help":
             response += "Usage:\n"
         if args[0] in ["help", "usage", "allHelps"]:
-            response += "`questions` - prints a list of today's questions"
+            response += "`questions` - prints a list of today's published questions"
         if args[0] == "allHelps":
             return response
     if response != "":
@@ -223,6 +233,37 @@ def questions(messageEvent):
     say(channel, response)
     return response
 
+def myQuestions(messageEvent):
+    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' ', 1), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`my-questions` - prints a list of your questions, published or not"
+        if args[0] == "allHelps":
+            return response
+    if response != "":
+        say(channel, response)
+        return response
+
+    response = checkPublic(messageEvent)
+    if response != "":
+        say(channel, response)
+        return response
+    
+    response = questionKeeper.listQuestionsByUser(userID)
+
+    if response == "":
+        response = "You have no questions right now. Use `question` to add some"
+    else:
+        response = "Here are all of your questions:\n" + response
+    
+    say(channel, response)
+    return response
+
 def publish(messageEvent):
     channel = messageEvent["channel"]
 
@@ -234,7 +275,8 @@ def publish(messageEvent):
     if identifier == "help":
         response += "Usage: "
     if identifier in ["help", "usage", "allHelps"]:
-        response += "`publish <identifier>`\n"
+        response += "`publish <identifier>` - publishes the corresponding question if `identifier` given. "\
+            + "Publishes all of your questions otherwise.\n"
     if identifier == "allHelps":
         return response
     if response != "":
@@ -272,15 +314,17 @@ def answer(messageEvent):
     if identifier == "help":
         response += "Usage: "
     if identifier in ["help", "usage", "allHelps"]:
-        response += "`answer [identifier] [your answer]`\n"
+        response += "`answer [identifier] [your answer]` - Must be used in a private channel. "\
+            + "Checks your `answer` for the corresponding question.\n"
     if args[0] == "allHelps":
             return response
     if response != "":
         say(channel, response)
         return response
     if len(args) < 2:
-        say(channel, "This command needs more arguments! Type \"answer help\" for usage")
-        return
+        response = "This command needs more arguments! Type \"answer help\" for usage"
+        say(channel, response)
+        return response
 
     response = checkPublic(messageEvent)
     if response != "":
@@ -391,7 +435,8 @@ def addPoints(messageEvent):
     if userID == "help":
         response += "Usage: "
     if userID in ["help", "usage", "allHelps"]:
-        response += "`add-point(s) [@user] <# points>`\n"
+        response += "`add-point(s) [@ user] <# points>` "\
+        + "- gives `# points` to `@ user` if specified, 1 point by default\n"
     if userID == "allHelps":
         return response
     if response != "":
@@ -476,6 +521,7 @@ commandsDict = {
     "q" : question,
     "questions" : questions,
     "qs" : questions,
+    "my-questions" : myQuestions,
     "publish" : publish,
     "answer" : answer,
     "a" : answer,
@@ -543,9 +589,9 @@ def handle_command(event):
 
     event["text"] = splitArguments[1] if len(splitArguments) > 1 else ""
     if command_id == "say-shutdown":
-        say(PUBLIC_TEST_CHANNEL, "Shutting down for a while. Beep boop.")
+        say(QOTD_CHANNEL, "Shutting down for a while. Beep boop.")
     if command_id == "say-startup":
-        say(PUBLIC_TEST_CHANNEL, "Starting up for the day! Beep boop.")
+        say(QOTD_CHANNEL, "Starting up for the day! Beep boop.")
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
