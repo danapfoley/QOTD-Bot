@@ -464,7 +464,7 @@ def addPoints(messageEvent):
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
     scoreKeeper.addUserPoints(userID, int(numPoints))
 
-    response = "Okay, I gave " + str(numPoints) + " points to " + getNameByID(userID)
+    response = "Okay, I gave " + str(numPoints) + " point" + ("s" if numPoints != 1 else "") + " to " + getNameByID(userID)
     say(DEPLOY_CHANNEL, response)
     return response
 

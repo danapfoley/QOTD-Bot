@@ -86,7 +86,7 @@ class QuestionKeeper:
 
     def addQuestion(self, userID, qID, questionText, correctAnswer = ""):
         for q in self.questionList:
-            if qID == q.qID:
+            if qID.lower() == q.qID.lower():
                 return False
         
         self.questionList.append(Question(userID, qID, questionText, correctAnswer))
@@ -97,7 +97,7 @@ class QuestionKeeper:
 
     def removeQuestion(self, qID):
         for q in self.questionList:
-            if qID == q.qID:
+            if qID.lower() == q.qID.lower():
                 self.questionList.remove(q)
                 
                 #save new data
@@ -107,7 +107,7 @@ class QuestionKeeper:
 
     def getQuestionByID(self, qID):
         for q in self.questionList:
-            if qID == q.qID:
+            if qID.lower() == q.qID.lower():
                 return q
 
         return None
