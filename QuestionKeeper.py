@@ -20,9 +20,17 @@ class Question:
         self.answeredBy = []
         self.guesses = {}
         
+    def cleanUpAnswer(self, answer):
+        answer = answer.lower().strip()
+        words = answer.split(' ')
+        removeWords = ["a","an","the"]
+
+        strippedWords = [word for word in words if word not in removeWords]
+        answer = ' '.join(strippedWords).strip()
+        return answer
 
     def checkAnswer(self, userID, inputAnswer):
-        match = self.correctAnswer.lower() == inputAnswer.lower()
+        match = self.cleanUpAnswer(self.correctAnswer) == self.cleanUpAnswer(inputAnswer)
         if match and userID not in self.answeredBy:
             self.answeredBy.append(userID)
         return match
@@ -52,7 +60,6 @@ class QuestionKeeper:
     def loadQuestionsFromFile(self):
         with open(QUESTIONS_FILE_NAME) as qFile:
             d = json.load(qFile)
-            print(d)
             for qJson in d["questions"]:
                 q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswer"])
                 q.initTime = qJson["initTime"]
@@ -83,8 +90,6 @@ class QuestionKeeper:
                 return False
         
         self.questionList.append(Question(userID, qID, questionText, correctAnswer))
-        for q in self.questionList:
-            print(vars(q))
 
         #save new data
         self.writeQuestionsToFile()
@@ -154,10 +159,10 @@ class QuestionKeeper:
                 output += q.prettyPrintWithAnswer() + (" (published)" if q.published else "") + "\n"
         return output
 
-    def expireQuestions(self):
+    def expireQuestions(self, userID):
         questionsExpired = []
         for q in self.questionList:
-            if q.timeToExpire():
+            if q.timeToExpire() and q.userID == userID:
                 questionsExpired.append(q.qID)
                 self.questionList.remove(q)
         self.writeQuestionsToFile()
@@ -187,6 +192,7 @@ class QuestionKeeper:
             if q.justPublished:
                 q.justPublished = False
                 output += q.prettyPrint() + "\n"
+        self.writeQuestionsToFile()
         return output
 
 

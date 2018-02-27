@@ -23,8 +23,11 @@ RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 HELP_COMMAND = "help"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
-QOTD_CHANNEL = DEBUG_CHANNEL #"C9DBNUYNL"
+QOTD_CHANNEL = "C9DBNUYNL"
 
+DEPLOY_CHANNEL = QOTD_CHANNEL
+
+LOG_FILE = "log.txt"
 
 # trackers
 questionKeeper = QuestionKeeper()
@@ -42,6 +45,11 @@ def say(channel, response):
             icon_emoji=':robot_face:'
         )
         print("QOTD Bot says: ", response)
+
+        tempfile = NamedTemporaryFile(delete=False)
+        with open(LOG_FILE, 'a', newline='') as tempfile:
+            tempfile.write("QOTD Bot says: " + response + "\n")
+        shutil.move(tempfile.name, LOG_FILE)
     except ValueError:
         print("QOTD Bot failed to say: ", response)
 
@@ -296,13 +304,11 @@ def publish(messageEvent):
 
     newQuestions = questionKeeper.firstTimeDisplay()
     if newQuestions != "":
-        say(QOTD_CHANNEL, "New questions: " + newQuestions)
+        say(DEPLOY_CHANNEL, "New questions:\n" + newQuestions)
 
     say(channel, response)
     return response
     
-
-
 def answer(messageEvent):
     channel, userID = messageEvent["channel"], messageEvent["user"]
 
@@ -337,7 +343,7 @@ def answer(messageEvent):
     if checkResponse == "correct":
         response = "Correct! I'll give you a point\n"
         messageEvent["text"] = messageEvent["user"]
-        addPoint(messageEvent)
+        addPoint(messageEvent, identifier)
     elif checkResponse == "incorrect":
         guessesLeft = MAX_GUESSES - questionKeeper.getQuestionByID(identifier).guesses[userID]
         response = "Incorrect. You have " + str(guessesLeft) + (" guesses left." if guessesLeft != 1 else " guess left.")
@@ -356,7 +362,6 @@ def answer(messageEvent):
 
     say(channel, response)
     return response
-
 
 def hello(messageEvent):
     channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
@@ -378,15 +383,13 @@ def hello(messageEvent):
     userName = getNameByID(userID)
 
     response = "Hello " + userName + ", I'm QOTD Bot!"
-    response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel
+    response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
     say(channel, response)
 
-def addPoint(messageEvent):
+def addPoint(messageEvent, qID = ""):
     channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
 
-    if response != "":
-        say(channel, response)
-        return response
+    response = ""
 
     if len(args) > 0:
         refID = args[0]
@@ -415,7 +418,7 @@ def addPoint(messageEvent):
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
     scoreKeeper.addUserPoint(userID)
 
-    say(QOTD_CHANNEL, "Point for " + getNameByID(userID) + "!")
+    say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!"))
 
 def addPoints(messageEvent):
     channel = messageEvent["channel"]
@@ -462,7 +465,7 @@ def addPoints(messageEvent):
     scoreKeeper.addUserPoints(userID, int(numPoints))
 
     response = "Okay, I gave " + str(numPoints) + " points to " + getNameByID(userID)
-    say(QOTD_CHANNEL, response)
+    say(DEPLOY_CHANNEL, response)
     return response
 
 def channelID(messageEvent):
@@ -501,12 +504,12 @@ def expireOldQuestions(messageEvent):
         say(channel, response)
         return response
 
-    expiredQuestions = questionKeeper.expireQuestions()
+    expiredQuestions = questionKeeper.expireQuestions(userID)
     if len(expiredQuestions) > 0:
         response = "The following questions have expired: "
         response += ', '.join(expiredQuestions)
     else:
-        response = "No questions older than 24 hours were found"
+        response = "No questions of yours older than 24 hours were found"
 
     say(channel, response)
     return response
@@ -552,10 +555,18 @@ def parse_bot_commands(slack_events):
         If its not found, then this function returns None, None.
     """
     for event in slack_events:
+        if event["type"] == "error":
+            print("Network error. Retrying in 5 seconds...\n")
+            time.sleep(5)
+            return None
         if event["type"] == "message" and not "subtype" in event:
             processedEvent = parse_direct_mention(event)
             if processedEvent:
                 print(getNameByID(event["user"]) + " says: " + event["text"])
+                tempfile = NamedTemporaryFile(delete=False)
+                with open(LOG_FILE, 'a', newline='') as tempfile:
+                    tempfile.write(getNameByID(event["user"]) + " says: " + event["text"] + "\n")
+                shutil.move(tempfile.name, LOG_FILE)
                 return processedEvent
     return None
 
@@ -589,9 +600,9 @@ def handle_command(event):
 
     event["text"] = splitArguments[1] if len(splitArguments) > 1 else ""
     if command_id == "say-shutdown":
-        say(QOTD_CHANNEL, "Shutting down for a while. Beep boop.")
+        say(DEPLOY_CHANNEL, "Shutting down for a while. Beep boop.")
     if command_id == "say-startup":
-        say(QOTD_CHANNEL, "Starting up for the day! Beep boop.")
+        say(DEPLOY_CHANNEL, "Starting up for the day! Beep boop.")
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
