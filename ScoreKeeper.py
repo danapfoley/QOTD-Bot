@@ -25,7 +25,8 @@ class ScoreKeeper:
             if score != "":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         if len(scoresList) > 0:
-            return "Today's scores: " + ", ".join(scoresList) + "\n"
+            scoresList.sort()
+            return "*Today's scores*:\n" + "\n".join(scoresList) + "\n\n"
         else:
             return "No new scores from today.\n"
 
@@ -38,7 +39,8 @@ class ScoreKeeper:
             if score != "":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
-        return "Total scores: " + ", ".join(scoresList)
+        scoresList.sort()
+        return "*Total scores*:\n" + "\n".join(scoresList) + "\n"
 
     def getUserScores(self, userID):
         output = ""

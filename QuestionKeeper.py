@@ -50,6 +50,7 @@ class Question:
         else:
             self.published = True
             self.justPublished = True
+            self.publishTime = time.time()
             return True
 
 class QuestionKeeper:
@@ -163,7 +164,7 @@ class QuestionKeeper:
         questionsExpired = []
         for q in self.questionList:
             if q.timeToExpire() and q.userID == userID:
-                questionsExpired.append(q.qID)
+                questionsExpired.append(q.prettyPrintWithAnswer())
                 self.questionList.remove(q)
         self.writeQuestionsToFile()
 

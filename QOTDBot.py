@@ -25,7 +25,7 @@ MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
 QOTD_CHANNEL = "C9DBNUYNL"
 
-DEPLOY_CHANNEL = QOTD_CHANNEL
+DEPLOY_CHANNEL = DEBUG_CHANNEL
 
 LOG_FILE = "log.txt"
 
@@ -345,8 +345,12 @@ def answer(messageEvent):
         messageEvent["text"] = messageEvent["user"]
         addPoint(messageEvent, identifier)
     elif checkResponse == "incorrect":
-        guessesLeft = MAX_GUESSES - questionKeeper.getQuestionByID(identifier).guesses[userID]
-        response = "Incorrect. You have " + str(guessesLeft) + (" guesses left." if guessesLeft != 1 else " guess left.")
+        q = questionKeeper.getQuestionByID(identifier)
+        guessesLeft = MAX_GUESSES - q.guesses[userID]
+        response = "Incorrect. You have " + str(guessesLeft) + (" guesses left.\n" if guessesLeft != 1 else " guess left.\n")
+        if guessesLeft == 0:
+            response += "The correct answer was \"" + q.correctAnswer + "\". If you think your guess(es) should have been correct, contact @" \
+                + getNameByID(q.userID) + ", who submitted the question.\n" 
     elif checkResponse == "already answered":
         response = "You already answered that question!"
     elif checkResponse == "max guesses":
@@ -506,8 +510,9 @@ def expireOldQuestions(messageEvent):
 
     expiredQuestions = questionKeeper.expireQuestions(userID)
     if len(expiredQuestions) > 0:
-        response = "The following questions have expired: "
-        response += ', '.join(expiredQuestions)
+        response = "The following questions have expired:\n"
+        response += '\n'.join(expiredQuestions)
+        say(DEPLOY_CHANNEL, response)
     else:
         response = "No questions of yours older than 24 hours were found"
 
@@ -603,6 +608,8 @@ def handle_command(event):
         say(DEPLOY_CHANNEL, "Shutting down for a while. Beep boop.")
     if command_id == "say-startup":
         say(DEPLOY_CHANNEL, "Starting up for the day! Beep boop.")
+    if command_id == "say-downtime":
+        say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any questions you entered that I didn't respond to.")
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
