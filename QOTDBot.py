@@ -152,8 +152,8 @@ def scores(messageEvent):
         return response
     
 
-    response = scoreKeeper.getTodayScores()
-    response += scoreKeeper.getTotalScores()
+    response = scoreKeeper.getTodayScoresRanked()
+    response += scoreKeeper.getTotalScoresRanked()
     say(channel, response)
     return response
 
@@ -511,7 +511,7 @@ def expireOldQuestions(messageEvent):
         if args[0] == "help":
             response += "Usage:\n"
         if args[0] in ["help", "usage", "allHelps"]:
-            response += "`expire-old-questions` - removes all questions published more than 24 hours ago"
+            response += "`expire-old-questions` - removes all questions published more than 18 hours ago"
         if args[0] == "allHelps":
             return response
     if response != "":
@@ -522,9 +522,10 @@ def expireOldQuestions(messageEvent):
     if len(expiredQuestions) > 0:
         response = "The following questions have expired:\n"
         response += '\n'.join(expiredQuestions)
-        say(DEPLOY_CHANNEL, response)
+        if channel != DEPLOY_CHANNEL:
+            say(DEPLOY_CHANNEL, response)
     else:
-        response = "No questions of yours older than 24 hours were found"
+        response = "No questions of yours older than 18 hours were found"
 
     say(channel, response)
     return response

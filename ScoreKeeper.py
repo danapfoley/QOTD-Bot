@@ -30,6 +30,26 @@ class ScoreKeeper:
         else:
             return "No new scores from today.\n"
 
+    def getTodayScoresRanked(self):
+        scoresList = []
+        todayScores = self.data[self.todayRowNum]
+        for column, score in enumerate(todayScores):
+            if column == 0:
+                continue
+            if score != "":
+                 scoresList.append((int(score), self.data[self.userNameRowNum][column]))
+        if len(scoresList) > 0:
+            scoresList.sort(reverse = True)
+            for idx, tuple in enumerate(scoresList):
+                user = tuple[1]
+                score = tuple[0]
+
+                scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
+
+            return "*Today's scores*:\n" + "\n".join(scoresList) + "\n\n"
+        else:
+            return "No new scores from today.\n"
+
     def getTotalScores(self):
         scoresList = []
         totalScores = self.data[self.totalsRowNum]
@@ -40,6 +60,23 @@ class ScoreKeeper:
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
         scoresList.sort()
+        return "*Total scores*:\n" + "\n".join(scoresList) + "\n"
+
+    def getTotalScoresRanked(self):
+        scoresList = []
+        totalScores = self.data[self.totalsRowNum]
+        for column, score in enumerate(totalScores):
+            if column == 0:
+                continue
+            if score != "":
+                scoresList.append((int(score), self.data[self.userNameRowNum][column]))
+        
+        scoresList.sort(reverse = True)
+        for idx, tuple in enumerate(scoresList):
+            user = tuple[1]
+            score = tuple[0]
+
+            scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
         return "*Total scores*:\n" + "\n".join(scoresList) + "\n"
 
     def getUserScores(self, userID):
