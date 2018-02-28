@@ -36,7 +36,7 @@ class Question:
         return match
 
     def timeToExpire(self):
-        return (time.time() - self.publishTime) > 86400 #seconds in a day
+        return (time.time() - self.publishTime) > 60 * 60 * 18
 
     def prettyPrint(self):
         return "(" + self.qID + "): " + self.questionText

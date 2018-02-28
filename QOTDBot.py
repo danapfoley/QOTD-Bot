@@ -3,7 +3,8 @@ import os
 import time
 import re
 import json
-from slackclient import SlackClient
+
+from WellBehavedSlackClient import *
 
 from QuestionKeeper import *
 from ScoreKeeper import *
@@ -12,7 +13,7 @@ from ScoreKeeper import *
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 
-slack_client = SlackClient(SLACK_BOT_TOKEN)
+slack_client = WellBehavedSlackClient(SLACK_BOT_TOKEN)
 # starterbot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
 
@@ -23,7 +24,8 @@ RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
 HELP_COMMAND = "help"
 MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
-QOTD_CHANNEL = "C9DBNUYNL"
+TEST_CHANNEL = "C9DBNUYNL"
+QOTD_CHANNEL = "C61L4NENS"
 
 DEPLOY_CHANNEL = QOTD_CHANNEL
 
@@ -466,9 +468,17 @@ def addPoints(messageEvent):
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
-    scoreKeeper.addUserPoints(userID, int(numPoints.replace(",","")))
+    
+    numPointsDigitsOnly = "".join([c for c in numPoints if c.isdigit() or c == "-"])
+    if numPointsDigitsOnly == "":
+        response = "I couldn't interpret " + numPoints + " as a number. Try again\n"
+        say(channel, response)
+        return response
 
-    response = "Okay, I gave " + str(numPoints) + " point" + ("s" if numPoints != 1 else "") + " to " + getNameByID(userID)
+    numPointsDigitsOnly = int(numPointsDigitsOnly)
+    scoreKeeper.addUserPoints(userID, numPointsDigitsOnly)
+
+    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(userID)
     say(DEPLOY_CHANNEL, response)
     return response
 
@@ -644,7 +654,7 @@ def handle_command(event):
     if command_id == "say-startup":
         say(DEPLOY_CHANNEL, "Starting up for the day! Beep boop.")
     if command_id == "say-downtime":
-        say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any questions you entered that I didn't respond to.")
+        say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any commands you entered that I didn't respond to.")
     if command_id in ["tell", "say", "trash-talk"]:
         tell(event)
     if command_id not in commandsDict:

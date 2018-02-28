@@ -34,6 +34,7 @@
     <Compile Include="ScoreKeeper.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="WellBehavedSlackClient.py" />
   </ItemGroup>
   <Import Condition="Exists($(PtvsTargetsFile))" Project="$(PtvsTargetsFile)" />
   <Import Condition="!Exists($(PtvsTargetsFile))" Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
