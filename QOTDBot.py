@@ -25,7 +25,7 @@ MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
 QOTD_CHANNEL = "C9DBNUYNL"
 
-DEPLOY_CHANNEL = DEBUG_CHANNEL
+DEPLOY_CHANNEL = QOTD_CHANNEL
 
 LOG_FILE = "log.txt"
 
@@ -466,7 +466,7 @@ def addPoints(messageEvent):
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
         scoreKeeper.addNameToUser(userID, getNameByID(userID))
-    scoreKeeper.addUserPoints(userID, int(numPoints))
+    scoreKeeper.addUserPoints(userID, int(numPoints.replace(",","")))
 
     response = "Okay, I gave " + str(numPoints) + " point" + ("s" if numPoints != 1 else "") + " to " + getNameByID(userID)
     say(DEPLOY_CHANNEL, response)
@@ -542,6 +542,41 @@ commandsDict = {
     "expire-old-questions" : expireOldQuestions
 }
 
+def tell(messageEvent):
+    channel, args, originUserID = messageEvent["channel"], messageEvent["text"].split(' ', 1), messageEvent["user"]
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`tell [@user] [message]` - tells a user something"
+        if args[0] == "allHelps":
+            return response
+    if len(args) < 2:
+        response = "this command needs more arguments!"
+    if response != "":
+        say(channel, response)
+        return response
+
+    userID = args[0]
+
+    for char in "<>@":
+        userID = userID.replace(char, "")
+
+    userID = userID.strip()
+    userName = getNameByID(userID)
+    if userName == userID: #if user name is invalid
+        response = "I couldn't find that user. Use `add-point help` for usage instructions"
+        say(channel, response)
+        return response
+
+    response = userName + ", " + getNameByID(originUserID) + " says " + args[1]
+
+    say(DEPLOY_CHANNEL, response)
+    return response
+
 
 #----------------------------------
 
@@ -610,6 +645,8 @@ def handle_command(event):
         say(DEPLOY_CHANNEL, "Starting up for the day! Beep boop.")
     if command_id == "say-downtime":
         say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any questions you entered that I didn't respond to.")
+    if command_id in ["tell", "say", "trash-talk"]:
+        tell(event)
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
