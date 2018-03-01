@@ -5,6 +5,10 @@ from datetime import date, datetime, timedelta
 
 SCORES_FILE_NAME = "scores.csv"
 
+def to_int(s):
+    s = s.strip()
+    return int(s) if s else 0
+
 class ScoreKeeper:
     def __init__(self):
         self.data = []
@@ -15,6 +19,7 @@ class ScoreKeeper:
 
         self.catchUpDateRows()
         self.getDataFromFile()
+        self.calculateMonthlyTotals()
 
     def getTodayScores(self):
         scoresList = []
@@ -25,7 +30,7 @@ class ScoreKeeper:
             if score != "":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         if len(scoresList) > 0:
-            scoresList.sort()
+            scoresList.sort(key=lambda s: s.lower())
             return "*Today's scores*:\n" + "\n".join(scoresList) + "\n\n"
         else:
             return "No new scores from today.\n"
@@ -59,8 +64,8 @@ class ScoreKeeper:
             if score != "":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
-        scoresList.sort()
-        return "*Total scores*:\n" + "\n".join(scoresList) + "\n"
+        scoresList.sort(key=lambda s: s.lower())
+        return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
 
     def getTotalScoresRanked(self):
         scoresList = []
@@ -77,7 +82,7 @@ class ScoreKeeper:
             score = tuple[0]
 
             scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
-        return "*Total scores*:\n" + "\n".join(scoresList) + "\n"
+        return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
 
     def getUserScores(self, userID):
         output = ""
@@ -108,7 +113,6 @@ class ScoreKeeper:
                 writer.writerow(row)
 
         shutil.move(tempfile.name, SCORES_FILE_NAME)
-
 
     def catchUpDateRows(self):
         file = open(SCORES_FILE_NAME,"r")
@@ -177,5 +181,21 @@ class ScoreKeeper:
         file = open(SCORES_FILE_NAME,"r")
         self.data = list(csv.reader(file))
         file.close()
+
+    def calculateMonthlyTotals(self):
+        todayMonth = int(self.data[self.todayRowNum][0].split("/")[0])
+
+        tempRow = self.todayRowNum
+        tempMonth = todayMonth
+
+        totals = [0] * (len(self.data[tempRow]) -1)
+
+        while tempMonth == todayMonth:
+            totals = [sum(x) for x in zip(totals, [to_int(s) for s in self.data[tempRow][1:]])]
+            tempRow -= 1
+            tempMonth = int(self.data[tempRow][0].split("/")[0])
+
+        self.data[self.totalsRowNum][1:] = totals
+        self.updateFileWithData()
 
 

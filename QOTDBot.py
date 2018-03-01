@@ -27,7 +27,7 @@ DEBUG_CHANNEL = "G9DHWHZP1"
 TEST_CHANNEL = "C9DBNUYNL"
 QOTD_CHANNEL = "C61L4NENS"
 
-DEPLOY_CHANNEL = QOTD_CHANNEL
+DEPLOY_CHANNEL = DEBUG_CHANNEL
 
 LOG_FILE = "log.txt"
 
@@ -72,6 +72,9 @@ def getNameByID(userID):
         userName = userID
 
     return userName
+
+def getReferenceByID(userID):
+    return "<@" + userID + ">"
 
 
 
@@ -154,6 +157,27 @@ def scores(messageEvent):
 
     response = scoreKeeper.getTodayScoresRanked()
     response += scoreKeeper.getTotalScoresRanked()
+    say(channel, response)
+    return response
+
+def scoresUnranked(messageEvent):
+    channel, args = messageEvent["channel"], messageEvent["text"].split(' ', 1)
+    response = ""
+
+    if len(args) > 0 and args[0] != "":
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`scores-unranked` - prints a list of today's scores and running totals, sorted alphabetically instead of by ranking"
+        if args[0] == "allHelps":
+            return response
+    
+    if response != "":
+        say(channel, response)
+        return response
+    
+    response = scoreKeeper.getTodayScores()
+    response += scoreKeeper.getTotalScores()
     say(channel, response)
     return response
 
@@ -535,6 +559,8 @@ commandsDict = {
     "help" : help,
     "scores" : scores,
     "score" : scores,
+    "score-unranked" : scoresUnranked,
+    "scores-unranked" : scoresUnranked,
     "points" : scores,
     "question" : question,
     "q" : question,
@@ -577,13 +603,12 @@ def tell(messageEvent):
         userID = userID.replace(char, "")
 
     userID = userID.strip()
-    userName = getNameByID(userID)
-    if userName == userID: #if user name is invalid
+    if getNameByID(userID) == userID: #if user name is invalid
         response = "I couldn't find that user. Use `add-point help` for usage instructions"
         say(channel, response)
         return response
 
-    response = userName + ", " + getNameByID(originUserID) + " says " + args[1]
+    response = "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(originUserID) + " says " + args[1]
 
     say(DEPLOY_CHANNEL, response)
     return response
