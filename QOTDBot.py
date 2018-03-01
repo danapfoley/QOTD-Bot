@@ -27,7 +27,7 @@ DEBUG_CHANNEL = "G9DHWHZP1"
 TEST_CHANNEL = "C9DBNUYNL"
 QOTD_CHANNEL = "C61L4NENS"
 
-DEPLOY_CHANNEL = QOTD_CHANNEL
+DEPLOY_CHANNEL = DEBUG_CHANNEL
 
 LOG_FILE = "log.txt"
 
@@ -46,16 +46,15 @@ def say(channel, response):
             text=response,
             icon_emoji=':robot_face:'
         )
-        print("QOTD Bot says: ", response)
-
-        tempfile = NamedTemporaryFile(delete=False)
-        with open(LOG_FILE, 'a', newline='') as tempfile:
-            tempfile.write("QOTD Bot says: " + response + "\n")
-        shutil.move(tempfile.name, LOG_FILE)
+        log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
     except ValueError:
-        print("QOTD Bot failed to say: ", response)
+        log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
 
-
+def log(response):
+    file = open(LOG_FILE, "a", newline='')
+    file.write(response)
+    file.close()
+    print(response)
 
 def getNameByID(userID):
     attemptedNameJson = slack_client.api_call(
@@ -461,7 +460,7 @@ def addPoints(messageEvent):
         return response
 
     userID = args[0]
-    numPoints = args[1] if len(args) >= 2 else 1
+    numPoints = args[1] if len(args) >= 2 and args[1] != "" else "1"
 
     response = ""
 
@@ -697,7 +696,12 @@ if __name__ == "__main__":
         bot_id = slack_client.api_call("auth.test")["user_id"]
         while True:
             #command, channel = parse_bot_commands(slack_client.rtm_read())
-            event = parse_bot_commands(slack_client.rtm_read())
+            try:
+                event = parse_bot_commands(slack_client.rtm_read())
+            except:
+                print("Connection Error. Retrying in 3 seconds...")
+                time.sleep(3)
+                continue
             #if command:
             if event:
                handle_command(event)

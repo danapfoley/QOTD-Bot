@@ -14,7 +14,12 @@ class WellBehavedSlackClient(SlackClient):
         while True:
             now = time()
             if (now - self.last_invoked) >= self.ratelimit:
-                result = super().api_call(method, timeout=timeout, **kwargs)
+                try:
+                    result = super().api_call(method, timeout=timeout, **kwargs)
+                except:
+                    print("Connection Error. Retrying in 3 seconds...")
+                    time.sleep(3)
+                    continue
                 self.last_invoked = time()
                 return result
             else:

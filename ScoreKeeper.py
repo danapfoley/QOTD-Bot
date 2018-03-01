@@ -61,7 +61,7 @@ class ScoreKeeper:
         for column, score in enumerate(totalScores):
             if column == 0:
                 continue
-            if score != "":
+            if score != "" and str(score) !="0":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
         scoresList.sort(key=lambda s: s.lower())
@@ -73,7 +73,7 @@ class ScoreKeeper:
         for column, score in enumerate(totalScores):
             if column == 0:
                 continue
-            if score != "":
+            if score != "" and str(score) != "0":
                 scoresList.append((int(score), self.data[self.userNameRowNum][column]))
         
         scoresList.sort(reverse = True)
