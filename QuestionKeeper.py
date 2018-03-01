@@ -164,8 +164,10 @@ class QuestionKeeper:
         questionsExpired = []
         for q in self.questionList:
             if q.timeToExpire() and q.userID == userID:
-                questionsExpired.append(q.prettyPrintWithAnswer())
-                self.questionList.remove(q)
+                questionsExpired.append(q)
+
+        self.questionList = [q for q in self.questionList if q not in questionsExpired]
+        questionsExpired = [q.prettyPrintWithAnswer() for q in questionsExpired]
         self.writeQuestionsToFile()
 
         return questionsExpired
