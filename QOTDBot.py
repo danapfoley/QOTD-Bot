@@ -27,13 +27,17 @@ DEBUG_CHANNEL = "G9DHWHZP1"
 TEST_CHANNEL = "C9DBNUYNL"
 QOTD_CHANNEL = "C61L4NENS"
 
-DEPLOY_CHANNEL = DEBUG_CHANNEL
+DEVELOPER_ID = "U88LK3JN9"
+
+DEPLOY_CHANNEL = QOTD_CHANNEL
 
 LOG_FILE = "log.txt"
 
 # trackers
 questionKeeper = QuestionKeeper()
 scoreKeeper = ScoreKeeper()
+
+bannedUsers = []
 
 #Commands stuff
 #----------------------------------
@@ -612,6 +616,48 @@ def tell(messageEvent):
     say(DEPLOY_CHANNEL, response)
     return response
 
+def banUser(messageEvent):
+    channel, args, originUserID = messageEvent["channel"], messageEvent["text"].split(' ', 1), messageEvent["user"]
+
+    if originUserID != DEVELOPER_ID:
+        response = "I'm sorry, " + getReferenceByID(originUserID) + ", I'm afraid I can't let you do that."
+        say(channel, response)
+        return response
+
+    response = ""
+
+    if len(args) > 0:
+        if args[0] == "help":
+            response += "Usage:\n"
+        if args[0] in ["help", "usage", "allHelps"]:
+            response += "`ban [@user] <reason>` - bans a user until the bot restarts"
+        if args[0] == "allHelps":
+            return response
+    if len(args) < 1:
+        response = "this command needs more arguments!"
+    if response != "":
+        say(channel, response)
+        return response
+
+    userID = args[0]
+    reason = args[1] if len(args) > 1 else "[no reason given]"
+
+    for char in "<>@":
+        userID = userID.replace(char, "")
+
+    userID = userID.strip()
+    if getNameByID(userID) == userID: #if user name is invalid
+        response = "I couldn't find that user. Use `add-point help` for usage instructions"
+        say(channel, response)
+        return response
+
+    global bannedUsers
+    if userID not in bannedUsers:
+        bannedUsers.append(userID)
+    response = getReferenceByID(userID) + " has been banned for reason: " + reason
+
+    say(DEPLOY_CHANNEL, response)
+    return response
 
 #----------------------------------
 
@@ -674,6 +720,10 @@ def handle_command(event):
     command_id = splitArguments[0].lower()
 
     event["text"] = splitArguments[1] if len(splitArguments) > 1 else ""
+
+    if event["user"] in bannedUsers:
+        return
+
     if command_id == "say-shutdown":
         say(DEPLOY_CHANNEL, "Shutting down for a while. Beep boop.")
     if command_id == "say-startup":
@@ -682,6 +732,8 @@ def handle_command(event):
         say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any commands you entered that I didn't respond to.")
     if command_id in ["tell", "say", "trash-talk"]:
         tell(event)
+    if command_id == "ban-user":
+        banUser(event)
     if command_id not in commandsDict:
         return
     func = commandsDict[command_id]
