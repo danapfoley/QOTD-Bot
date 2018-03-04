@@ -152,6 +152,14 @@ class ScoreKeeper:
         else:
             return -1
 
+    def getUserNameInScoreSheet(self, userID):
+        column = self.getUserColumnNum(userID)
+
+        if column != -1:
+            return self.data[self.userNameRowNum][column]
+        else:
+            return None
+
     def addNewUser(self, userID):
         for idx, row in enumerate(self.data):
             self.data[idx].append("")
