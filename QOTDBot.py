@@ -29,9 +29,10 @@ QOTD_CHANNEL = "C61L4NENS"
 
 DEVELOPER_ID = "U88LK3JN9" #Dana
 
-DEPLOY_CHANNEL = DEBUG_CHANNEL
+DEPLOY_CHANNEL = QOTD_CHANNEL
 
 LOG_FILE = "log.txt"
+USER_LIST_FILE = "userList.json"
 
 
 #Commands stuff
@@ -57,6 +58,23 @@ def log(response):
     print(response)
 
 def getNameByID(userID):
+    usersDict = {}
+
+    #Our top priority is to get the name from the score sheet,
+    #since we can change that to a person's preference if they don't want to use their display name
+    nameFromScoreSheet = scoreKeeper.getUserNameInScoreSheet(userID)
+    if nameFromScoreSheet:
+        userName = nameFromScoreSheet
+        return userName
+
+    #Next highest priority is to use the bulk list of all users we can manually pull from Slack
+    with open(USER_LIST_FILE) as usersFile:
+        usersDict = json.load(usersFile)
+    if userID in usersDict:
+        userName = usersDict[userID]
+        return userName
+    
+    #Last ditch effort is to do an api call, which we really want to avoid
     attemptedNameJson = slack_client.api_call(
         "users.info",
         token = SLACK_BOT_TOKEN,
@@ -386,6 +404,23 @@ def tell(channel, userID, argsString):
 
     say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
 
+def refreshUserList(channel, userID, argsString):
+    usersJson = {}
+
+    usersList = slack_client.api_call("users.list")["members"]
+    for member in usersList:
+        name = member["profile"]["display_name"]
+        if name == "":
+            name = member["profile"]["real_name"]
+        usersJson[member["id"]] = name
+
+    tempfile = NamedTemporaryFile(delete=False)
+    with open(USER_LIST_FILE, 'w') as tempfile:
+        json.dump(usersJson, tempfile, indent = 4)
+
+    shutil.move(tempfile.name, USER_LIST_FILE)
+
+
 class Command:
     def __init__(self, aliases, func, helpText = "", publicOnly = False, privateOnly = False, devOnly = False):
         self.aliases = aliases
@@ -487,8 +522,13 @@ class CommandKeeper:
             Command(
                 aliases = ["tell", "say", "trash-talk"],
                 func = tell
-            )
+            ),
 
+            Command(
+                aliases = ["refresh-user-list"],
+                func = refreshUserList,
+                devOnly = True
+            )
         ]
 
     def help(self, channel):
