@@ -29,7 +29,7 @@ QOTD_CHANNEL = "C61L4NENS"
 
 DEVELOPER_ID = "U88LK3JN9" #Dana
 
-DEPLOY_CHANNEL = QOTD_CHANNEL
+DEPLOY_CHANNEL = DEBUG_CHANNEL
 
 LOG_FILE = "log.txt"
 USER_LIST_FILE = "userList.json"
@@ -59,6 +59,11 @@ def log(response):
 
 def getNameByID(userID):
     usersDict = {}
+
+    #All Slack user IDs start with "U", by convention
+    #So this is an easy check for invalid names
+    if not userID.startswith('U'):
+        return userID
 
     #Our top priority is to get the name from the score sheet,
     #since we can change that to a person's preference if they don't want to use their display name
@@ -93,6 +98,12 @@ def getNameByID(userID):
 def getReferenceByID(userID):
     return "<@" + userID + ">"
 
+def getIDFromReference(userIDReference):
+    for char in "<>@":
+        userIDReference = userIDReference.replace(char, "")
+    userID = userIDReference.strip()
+    return userID
+
 
 
 def getDirectChannel(userID):
@@ -124,10 +135,7 @@ def scores(channel, userID, argsString):
 
     #If a user to get scores for is specified
     if len(args) > 0 and args[0] != "":
-        scoresForUser = args[0]
-        for char in "<>@":
-            scoresForUser = scoresForUser.replace(char, "")
-        scoresForUser = scoresForUser.strip()
+        scoresForUser = getIDFromReference(args[0])
         
         if getNameByID(scoresForUser) != scoresForUser: #if user name is valid
             response = scoreKeeper.getUserScores(scoresForUser)
@@ -292,39 +300,6 @@ def hello(channel, userID, argsString):
     
     say(channel, response)
 
-def addPoint(messageEvent, qID = ""):
-    channel, args, userID = messageEvent["channel"], messageEvent["text"].split(' '), messageEvent["user"]
-
-    response = ""
-
-    if len(args) > 0:
-        refID = args[0]
-        if refID == "help":
-            response += "Usage:\n"
-        if refID in ["help", "usage", "allHelps"]:
-            response += "`add-point <user>` - gives a point to <user> if given, gives a point to you if left blank"
-        if refID == "allHelps":
-            return response
-        if response != "":
-            say(channel, response)
-            return response
-        
-        for char in "<>@":
-            refID = refID.replace(char, "")
-        refID = refID.strip()
-        if getNameByID(refID) != refID: #if user name is valid
-            userID = refID
-        else:
-            response = "I couldn't find that user. Use `add-point help` for usage instructions"
-            say(channel, response)
-            return response
-
-    if not scoreKeeper.userExists(userID):
-        scoreKeeper.addNewUser(userID)
-        scoreKeeper.addNameToUser(userID, getNameByID(userID))
-    scoreKeeper.addUserPoint(userID)
-
-    say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!"))
 
 def addPoints(channel, userID, argsString):
     args = argsString.split(' ', 1)
@@ -333,12 +308,9 @@ def addPoints(channel, userID, argsString):
         needsMoreArgs(channel)
         return
 
-    pointsForUser = args[0]
+    pointsForUser = getIDFromReference(args[0])
     numPoints = args[1] if len(args) >= 2 and args[1] != "" else "1"
 
-    for char in "<>@":
-        pointsForUser = pointsForUser.replace(char, "")
-    pointsForUser = pointsForUser.strip()
     if getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
         say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
@@ -391,12 +363,8 @@ def tell(channel, userID, argsString):
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
         say(channel, "this command needs more arguments!")
    
-    userToTell = args[0]
+    userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
-
-    for char in "<>@":
-        userToTell = userToTell.replace(char, "")
-    userToTell = userToTell.strip()
 
     if getNameByID(userToTell) == userToTell: #if user name is invalid
         say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
