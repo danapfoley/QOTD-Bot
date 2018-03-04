@@ -18,7 +18,7 @@ class WellBehavedSlackClient(SlackClient):
                     result = super().api_call(method, timeout=timeout, **kwargs)
                 except:
                     print("Connection Error. Retrying in 3 seconds...")
-                    time.sleep(3)
+                    sleep(3)
                     continue
                 self.last_invoked = time()
                 return result

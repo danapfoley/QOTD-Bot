@@ -166,6 +166,10 @@ class ScoreKeeper:
         self.addUserPoints(userID, 1)
 
     def addUserPoints(self, userID, numPoints):
+        if not self.userExists(userID):
+            self.addNewUser(userID)
+            self.addNameToUser(userID, getNameByID(userID))
+
         columnNum = self.getUserColumnNum(userID)
         if columnNum == -1:
             self.addNewUser(userID)
