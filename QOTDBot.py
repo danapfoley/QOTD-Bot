@@ -29,7 +29,7 @@ QOTD_CHANNEL = "C61L4NENS"
 
 DEVELOPER_ID = "U88LK3JN9" #Dana
 
-DEPLOY_CHANNEL = DEBUG_CHANNEL
+DEPLOY_CHANNEL = QOTD_CHANNEL
 
 LOG_FILE = "log.txt"
 USER_LIST_FILE = "userList.json"
@@ -52,7 +52,7 @@ def say(channel, response):
         log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
 
 def log(response):
-    file = open(LOG_FILE, "a", newline='')
+    file = open(LOG_FILE, "a", newline='', encoding='utf8')
     file.write(response)
     file.close()
     print(response)
@@ -633,8 +633,9 @@ if __name__ == "__main__":
             #command, channel = parse_bot_commands(slack_client.rtm_read())
             try:
                 event = parse_bot_commands(slack_client.rtm_read())
-            except:
-                print("Connection Error. Retrying in 3 seconds...")
+            except BaseException as e:
+                log("Connection Error. Retrying in 3 seconds...")
+                log("Exception details: " + str(e))
                 time.sleep(3)
                 continue
             #if command:
