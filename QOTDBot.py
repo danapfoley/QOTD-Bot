@@ -263,6 +263,11 @@ def answer(channel, userID, argsString):
     if checkResponse == "correct":
         qID = questionKeeper.getQuestionByID(identifier).qID #Calling this to get proper capitalization
         response = "Correct! I'll give you a point\n"
+
+        if not scoreKeeper.userExists(userID):
+            scoreKeeper.addNewUser(userID)
+            scoreKeeper.addNameToUser(userID, getNameByID(userID))
+
         scoreKeeper.addUserPoint(userID)
         say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!"))
 
@@ -322,6 +327,10 @@ def addPoints(channel, userID, argsString):
     if numPointsDigitsOnly == "":
         say(channel, "I couldn't interpret " + numPoints + " as a number. Try again\n")
         return
+
+    if not scoreKeeper.userExists(userID):
+        scoreKeeper.addNewUser(userID)
+        scoreKeeper.addNameToUser(userID, getNameByID(userID))
 
     numPointsDigitsOnly = int(numPointsDigitsOnly)
     scoreKeeper.addUserPoints(pointsForUser, numPointsDigitsOnly)
