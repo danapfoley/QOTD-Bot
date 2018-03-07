@@ -122,7 +122,7 @@ def checkPublic(messageEvent):
 
 def checkPrivate(messageEvent):
     if is_event_private(messageEvent):
-        return "You can't suse this command in a private channel. Use the public channel instead"
+        return "You can't use this command in a private channel. Use the public channel instead"
     else:
         return ""
 
@@ -182,8 +182,6 @@ def question(channel, userID, argsString):
     if question == "remove":
         if questionKeeper.removeQuestion(identifier):
             response = "Okay, I removed that question"
-            print(channel)
-            print(response)
             say(channel, response)
             return
         else:
@@ -197,7 +195,7 @@ def question(channel, userID, argsString):
     if questionAdded:
         response = "Okay, I added your question with ID " + identifier + ".\n"\
                  + "Use `publish` to make your questions publicly available, "\
-                 + "or `remove` to remove it"
+                 + "or `question " + identifier + " remove` to remove it"
     else:
         response = "A question with this ID already exists right now. Please use a different one"
 
@@ -326,9 +324,9 @@ def addPoints(channel, userID, argsString):
         return
 
     numPointsDigitsOnly = int(numPointsDigitsOnly)
-    scoreKeeper.addUserPoints(userID, numPointsDigitsOnly)
+    scoreKeeper.addUserPoints(pointsForUser, numPointsDigitsOnly)
 
-    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(userID)
+    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(pointsForUser)
     say(DEPLOY_CHANNEL, response)
 
 def expireOldQuestions(channel, userID, argsString):
