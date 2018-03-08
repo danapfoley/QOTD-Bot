@@ -532,6 +532,9 @@ class CommandKeeper:
         userID = event["user"]
         channel = event["channel"]
 
+        #Clean up multiple whitespace characters for better uniformity for all commands
+        #e.g. "This   is:       some text" turns into "This is: some text"
+        event["text"] = " ".join(event["text"].split())
 
         splitArguments = event["text"].split(' ', 1)
         commandAlias = splitArguments[0].lower()
