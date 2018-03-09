@@ -17,9 +17,8 @@ class ScoreKeeper:
         self.userIDRowNum = 0 #manually set
         self.userNameRowNum = 1 #manually set
 
-        self.catchUpDateRows()
         self.getDataFromFile()
-        self.calculateMonthlyTotals()
+        self.catchUpDateRows()
 
     def getTodayScores(self):
         scoresList = []
@@ -115,16 +114,11 @@ class ScoreKeeper:
         shutil.move(tempfile.name, SCORES_FILE_NAME)
 
     def catchUpDateRows(self):
-        file = open(SCORES_FILE_NAME,"r")
-        reader = list(csv.reader(file))
-        file.close()
         
-        numRows = len(reader)
-        rowLength = len(reader[0])
+        rowLength = len(self.data[0])
 
         today = datetime.today().date()
-        lastDate = datetime.strptime(reader[-1][0], "%m/%d/%Y").date()
-        newData=[]
+        lastDate = datetime.strptime(self.data[-1][0], "%m/%d/%Y").date()
         if lastDate < today:
             needsCatchUp = True
         else:
@@ -132,16 +126,13 @@ class ScoreKeeper:
 
         while lastDate < today:
             lastDate += timedelta(days=1)
-            numRows += 1
-            newData.append([lastDate.strftime("%m/%d/%Y")] + ([""] * rowLength))
+            self.data.append([lastDate.strftime("%m/%d/%Y")] + ([""] * rowLength))
 
         if needsCatchUp:
-            file = open(SCORES_FILE_NAME, "a", newline='')
-            writer = csv.writer(file)
-            writer.writerows(newData)
-            file.close()
+            self.updateFileWithData()
+            self.calculateMonthlyTotals()
 
-        self.todayRowNum = numRows - 1
+            self.todayRowNum = len(self.data)
         
     def userExists(self, userID):
         return userID in self.data[self.userIDRowNum]
@@ -174,6 +165,9 @@ class ScoreKeeper:
         self.addUserPoints(userID, 1)
 
     def addUserPoints(self, userID, numPoints):
+        
+        self.catchUpDateRows()
+
         columnNum = self.getUserColumnNum(userID)
         if columnNum == -1:
             self.addNewUser(userID)
