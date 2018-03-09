@@ -132,7 +132,7 @@ class ScoreKeeper:
             self.updateFileWithData()
             self.calculateMonthlyTotals()
 
-            self.todayRowNum = len(self.data)
+            self.todayRowNum = len(self.data) - 1
         
     def userExists(self, userID):
         return userID in self.data[self.userIDRowNum]
