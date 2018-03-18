@@ -594,6 +594,9 @@ def parse_bot_commands(slack_events):
         If its not found, then this function returns None, None.
     """
     for event in slack_events:
+        if event["type"] == "goodbye":
+            print("Got 'goodbye' message. Reconnecting now")
+            slack_client.rtm_connect(with_team_state=False)
         if event["type"] == "error":
             print("Network error. Retrying in 5 seconds...\n")
             time.sleep(5)

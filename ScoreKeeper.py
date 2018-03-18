@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 SCORES_FILE_NAME = "scores.csv"
 
 def to_int(s):
-    s = s.strip()
+    str(s).strip()
     return int(s) if s else 0
 
 class ScoreKeeper:
@@ -129,8 +129,8 @@ class ScoreKeeper:
             self.data.append([lastDate.strftime("%m/%d/%Y")] + ([""] * rowLength))
 
         if needsCatchUp:
-            self.updateFileWithData()
             self.calculateMonthlyTotals()
+            self.updateFileWithData()
 
             self.todayRowNum = len(self.data) - 1
         
