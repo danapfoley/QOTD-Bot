@@ -7,12 +7,24 @@ MAX_GUESSES = 3
 
 QUESTIONS_FILE_NAME = "questions.json"
 
+def splitCategory(inputStr):
+    #Splitting the category from qID.
+    #Current format is: "Category"qID
+    firstInst, lastInst = qID.find('"'), qID.rfind('"')
+    category = ""
+    if qID.count('"') == 2 and firstInst == 0 and lastInst != (len(qID) - 1):
+        category = qID[1:lastInst-1]
+        qID = qID[lastInst+1:]
+    return qID, category
+
+
 class Question:
-    def __init__(self, userID, qID, questionText, correctAnswer = ""):
+    def __init__(self, userID, qID, questionText, correctAnswer = "", category = ""):
         self.userID = userID
         self.qID = qID
         self.questionText = questionText
         self.correctAnswer = correctAnswer
+        self.category = category
         self.initTime = time.time()
         self.publishTime = 0
         self.published = False
@@ -44,10 +56,12 @@ class Question:
         return (time.time() - self.publishTime) > 60 * 60 * 18
 
     def prettyPrint(self):
-        return "(" + self.qID + "): " + self.questionText
+        output = "" if self.category == "" else (self.category + " ")
+        output = output + "(" + self.qID + "): " + self.questionText
+        return output
 
     def prettyPrintWithAnswer(self):
-        return "(" + self.qID + "): " + self.questionText + " : " + self.correctAnswer
+        return self.prettyPrint() + " : " + self.correctAnswer
 
     def publish(self):
         if self.published:
@@ -67,7 +81,7 @@ class QuestionKeeper:
         with open(QUESTIONS_FILE_NAME) as qFile:
             d = json.load(qFile)
             for qJson in d["questions"]:
-                q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswer"])
+                q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswer"], qJson["category"])
                 q.initTime = qJson["initTime"]
                 q.publishTime = qJson["publishTime"]
                 q.published = qJson["published"]
@@ -91,17 +105,21 @@ class QuestionKeeper:
         shutil.move(tempfile.name, QUESTIONS_FILE_NAME)
 
     def addQuestion(self, userID, qID, questionText, correctAnswer = ""):
+        qID, category = splitCategory(qID)
+
         for q in self.questionList:
             if qID.lower() == q.qID.lower():
                 return False
         
-        self.questionList.append(Question(userID, qID, questionText, correctAnswer))
+        self.questionList.append(Question(userID, qID, questionText, correctAnswer, category))
 
         #save new data
         self.writeQuestionsToFile()
         return True
 
     def removeQuestion(self, qID):
+        qID, category = splitCategory(qID)
+
         for q in self.questionList:
             if qID.lower() == q.qID.lower():
                 self.questionList.remove(q)
@@ -112,6 +130,8 @@ class QuestionKeeper:
         return False
 
     def getQuestionByID(self, qID):
+        qID, category = splitCategory(qID)
+
         for q in self.questionList:
             if qID.lower() == q.qID.lower():
                 return q
