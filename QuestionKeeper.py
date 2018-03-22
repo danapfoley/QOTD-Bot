@@ -7,13 +7,13 @@ MAX_GUESSES = 3
 
 QUESTIONS_FILE_NAME = "questions.json"
 
-def splitCategory(inputStr):
+def splitCategory(qID):
     #Splitting the category from qID.
     #Current format is: "Category"qID
     firstInst, lastInst = qID.find('"'), qID.rfind('"')
     category = ""
     if qID.count('"') == 2 and firstInst == 0 and lastInst != (len(qID) - 1):
-        category = qID[1:lastInst-1]
+        category = qID[1:lastInst]
         qID = qID[lastInst+1:]
     return qID, category
 
