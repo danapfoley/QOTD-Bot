@@ -117,11 +117,11 @@ class QuestionKeeper:
         self.writeQuestionsToFile()
         return True
 
-    def removeQuestion(self, qID):
+    def removeQuestion(self, qID, userID):
         qID, category = splitCategory(qID)
 
         for q in self.questionList:
-            if qID.lower() == q.qID.lower():
+            if qID.lower() == q.qID.lower() and (q.userID == userID or userID == "DEV"):
                 self.questionList.remove(q)
                 
                 #save new data

@@ -13,7 +13,12 @@ from ScoreKeeper import *
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 
-slack_client = WellBehavedSlackClient(SLACK_BOT_TOKEN)
+slack_client = None
+
+questionKeeper = None
+scoreKeeper = None
+commandKeeper = None
+
 # starterbot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
 
@@ -180,12 +185,12 @@ def question(channel, userID, argsString):
         answer = args[colonIndex+1:].strip()
 
     if question == "remove":
-        if questionKeeper.removeQuestion(identifier):
+        if questionKeeper.removeQuestion(identifier, "DEV" if userID == DEVELOPER_ID else userID):
             response = "Okay, I removed that question"
             say(channel, response)
             return
         else:
-            response = "I didn't find a question with that ID"
+            response = "I couldn't find a question of yours with that ID"
             say(channel, response) 
             return
 
@@ -215,6 +220,17 @@ def questions(channel, userID, argsString):
         response = "Here are all the currently active questions:\n" + response
     
     say(channel, response)
+
+def removeQuestion(channel, userID, argsString):
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    args = argsString.split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    question(channel, userID, identifier + " remove")
+
 
 def myQuestions(channel, userID, argsString):
     args = argsString.split(' ', 1)
@@ -439,6 +455,12 @@ class CommandKeeper:
             ),
 
             Command(
+                aliases = ["rq", "remove", "remove-question"],
+                func = removeQuestion,
+                helpText = "`remove [identifier]` removes the question with the corresponding ID" 
+            ),
+
+            Command(
                 aliases = ["my-questions"],
                 func = myQuestions,
                 helpText = "`my-questions` - prints a list of your questions, published or not"
@@ -636,13 +658,15 @@ def parse_direct_mention(event):
 
 
 if __name__ == "__main__":
+    slack_client = WellBehavedSlackClient(SLACK_BOT_TOKEN)
+
     if slack_client.rtm_connect(with_team_state=False):
         
         questionKeeper = QuestionKeeper()
         scoreKeeper = ScoreKeeper()
         commandKeeper = CommandKeeper()
 
-        print("Starter Bot connected and running!")
+        print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`
         bot_id = slack_client.api_call("auth.test")["user_id"]
         while True:
