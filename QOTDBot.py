@@ -324,7 +324,7 @@ def hello(channel, userID, argsString):
 
 
 def addPoints(channel, userID, argsString):
-    args = argsString.split(' ', 1)
+    args = argsString.split(' ')
 
     if len(args) < 1 or args[0] == "":
         needsMoreArgs(channel)
