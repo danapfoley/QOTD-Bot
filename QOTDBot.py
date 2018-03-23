@@ -204,8 +204,11 @@ def question(channel, userID, argsString):
 def questions(channel, userID, argsString):
     args = argsString.split(' ', 1)
     
-    response = questionKeeper.listQuestions()
-
+    if is_channel_private(channel):
+        response = questionKeeper.listQuestionsPrivate(userID)
+    else:
+        response = questionKeeper.listQuestions()
+    
     if response == "":
         response = "There are no currently active questions"
     else:
@@ -650,6 +653,12 @@ if __name__ == "__main__":
                 log("Connection Error. Retrying in 3 seconds...")
                 log("Exception details: " + str(e))
                 time.sleep(3)
+                try:
+                    slack_client.rtm_connect(with_team_state=False)
+                except BaseException as e:
+                    log("Couldn't reconnect :(")
+                    log("Exception details: " + str(e))
+                    continue
                 continue
             #if command:
             if event:

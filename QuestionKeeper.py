@@ -177,6 +177,15 @@ class QuestionKeeper:
             if q.published:
                 output += q.prettyPrint() + "\n"
         return output
+    
+    def listQuestionsPrivate(self, userID):
+        output = ""
+        for q in self.questionList:
+            if q.published:
+                if userID not in q.answeredBy and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
+                    output += "● "
+                output += q.prettyPrint() + "\n"
+        return output
 
     def listQuestionsByUser(self, userID):
         output = ""

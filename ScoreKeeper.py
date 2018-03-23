@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta
 SCORES_FILE_NAME = "scores.csv"
 
 def to_int(s):
-    str(s).strip()
+    s = str(s).strip()
     return int(s) if s else 0
 
 class ScoreKeeper:
