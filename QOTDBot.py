@@ -388,6 +388,7 @@ def tell(channel, userID, argsString):
     if len(args) < 2:
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
         say(channel, "this command needs more arguments!")
+        return
    
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
@@ -397,6 +398,30 @@ def tell(channel, userID, argsString):
         return
 
     say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
+
+def devTell(channel, userID, argsString):
+    args = argsString.split(' ', 1)
+
+    response = ""
+
+    if len(args) < 2:
+        #Not using the needsMoreArgs function since this is a hidden command and has no help text
+        say(channel, "this command needs more arguments!")
+        return
+   
+    userToTell = getIDFromReference(args[0])
+    whatToSay = args[1]
+
+    if getNameByID(userToTell) == userToTell: #if user name is invalid
+        say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
+        return
+
+    userChannel = getDirectChannel(args[0])
+
+    say(userChannel, whatToSay)
+
+def announce(channel, userID, argsString):
+    say(DEPLOY_CHANNEL, argsString)
 
 def refreshUserList(channel, userID, argsString):
     usersJson = {}
@@ -522,6 +547,18 @@ class CommandKeeper:
             Command(
                 aliases = ["tell", "say", "trash-talk"],
                 func = tell
+            ),
+
+            Command(
+                aliases = ["dev-say", "dev-tell", "dev-talk"],
+                func = devTell,
+                devOnly = True
+            ),
+
+            Command(
+                aliases = ["announce"],
+                func = announce,
+                devOnly = True
             ),
 
             Command(

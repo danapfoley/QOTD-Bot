@@ -15,12 +15,16 @@ def testGetReferenceByID(userID):
 def testGetIDFromReference(userIDReference):
     return qb.DEVELOPER_ID
 
+def testGetDirectChannel(userID):
+    return qb.DEBUG_CHANNEL
+
 #overwrite slack-based functions
 qb.say = testSay
 qb.log = testLog
 qb.getNameByID = testGetNameByID
 qb.getReferenceByID = testGetReferenceByID
 qb.getIDFromReference = testGetIDFromReference
+qb.getDirectChannel = testGetDirectChannel
 
 if __name__ == "__main__":
     qb.questionKeeper = qb.QuestionKeeper()
