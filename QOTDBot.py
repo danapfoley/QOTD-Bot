@@ -416,7 +416,7 @@ def devTell(channel, userID, argsString):
         say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
-    userChannel = getDirectChannel(args[0])
+    userChannel = getDirectChannel(userToTell)
 
     say(userChannel, whatToSay)
 

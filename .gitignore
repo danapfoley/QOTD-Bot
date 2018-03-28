@@ -1,3 +1,6 @@
 .vs/
 __pycache__/
 log.txt
+questions.json
+scores.csv
+userList.json
