@@ -288,7 +288,8 @@ def answer(channel, userID, argsString):
             scoreKeeper.addNameToUser(userID, getNameByID(userID))
 
         scoreKeeper.addUserPoint(userID)
-        say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!"))
+        say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
+                            + ("\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(qID) else ""))
 
     elif checkResponse == "incorrect":
         q = questionKeeper.getQuestionByID(identifier)
