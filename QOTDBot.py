@@ -371,15 +371,6 @@ def expireOldQuestions(channel, userID, argsString):
 
     say(channel, response)
 
-def sayShutdown(channel, userID, argsString):
-    say(DEPLOY_CHANNEL, "Shutting down for a while. Beep boop.")
-
-def sayStartup(channel, userID, argsString):
-    say(DEPLOY_CHANNEL, "Starting up for the day! Beep boop.")
-
-def sayDowntime(channel, userID, argsString):
-    say(DEPLOY_CHANNEL, "Sorry, I was down for a bit! Be sure to re-send any commands you entered that I didn't respond to.")
-
 def tell(channel, userID, argsString):
     args = argsString.split(' ', 1)
 
@@ -524,24 +515,6 @@ class CommandKeeper:
                 aliases = ["expire-old-questions"],
                 func = expireOldQuestions,
                 helpText = "`expire-old-questions` - removes all questions published more than 18 hours ago"
-            ),
-
-            Command(
-                aliases = ["say-shutdown"],
-                func = sayShutdown,
-                devOnly = True
-            ),
-
-            Command(
-                aliases = ["say-startup"],
-                func = sayStartup,
-                devOnly = True
-            ),
-
-            Command(
-                aliases = ["say-downtime"],
-                func = sayDowntime,
-                devOnly = True
             ),
 
             Command(
