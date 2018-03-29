@@ -182,7 +182,9 @@ class QuestionKeeper:
         output = ""
         for q in self.questionList:
             if q.published:
-                if userID not in q.answeredBy and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
+                if userID not in q.answeredBy \
+                  and userID != q.userID\
+                  and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
                     output += "● "
                 output += q.prettyPrint() + "\n"
         return output
