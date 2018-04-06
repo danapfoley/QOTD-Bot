@@ -214,14 +214,13 @@ def question(channel, userID, argsString):
 
             response += "\n\n"
 
-        response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID
+        response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID \
+                 + ", and " + str(numGuesses - numAnswers) + " didn't guess the right answer"
 
-        if numGuesses > 0:
+        if (numGuesses - numAnswers) > 0:
             response += ":\n"
 
-            response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys()])
-
-            response += "\n\n"
+            response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
 
         say(channel, response)
         return
@@ -495,7 +494,7 @@ class CommandKeeper:
                 func = question,
                 helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
-                         + "`question [identifier] count` - shows stats on who has answered/guessed a question.`",
+                         + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
                 privateOnly = True
             ),
             
