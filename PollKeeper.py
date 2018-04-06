@@ -35,7 +35,7 @@ class PollQuestion:
     def prettyPrint(self):
         output = "(" + self.pID + "): " + self.pollQuestionText + "\n"
 
-        for option in self.options:
+        for option in sorted(self.options.keys()):
             output += "    (" + option + "): " + self.options[option] + "\n"
 
         return output
