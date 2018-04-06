@@ -197,13 +197,14 @@ def question(channel, userID, argsString):
     if question == "count":
         q = questionKeeper.getQuestionByID(identifier)
 
-        numAnswers = q.countAnswers()
-        numGuesses = q.countGuesses()
-
-        if not q:
+        if q is None:
             response = "I couldn't find a question of yours with that ID"
             say(channel, response)
             return
+
+        numAnswers = q.countAnswers()
+        numGuesses = q.countGuesses()
+
         response = str(numAnswers) + (" people" if numAnswers != 1 else " person") + " answered question " + q.qID + " correctly"
 
         if numAnswers > 0:
