@@ -144,6 +144,15 @@ class QuestionKeeper:
 
         return None
 
+    def getUserQuestionByID(self, qID, userID):
+        qID, category = splitCategory(qID)
+
+        for q in self.questionList:
+            if qID.lower() == q.qID.lower() and (q.userID == userID or userID == "DEV"):
+                return q
+
+        return None
+
     def getSubmitterByQID(self, qID):
         q = self.getQuestionByID(qID)
         if q:

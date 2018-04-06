@@ -195,7 +195,7 @@ def question(channel, userID, argsString):
             return
 
     if question == "count":
-        q = questionKeeper.getQuestionByID(identifier)
+        q = questionKeeper.getUserQuestionByID(identifier, "DEV" if userID == DEVELOPER_ID else userID)
 
         if q is None:
             response = "I couldn't find a question of yours with that ID"
