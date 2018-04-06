@@ -711,22 +711,28 @@ class CommandKeeper:
             Command(
                 aliases = ["poll", "p"],
                 func = poll,
-                privateOnly = True
+                privateOnly = True,
+                helpText = "`poll [identifier] [question] : [option 1] : [option 2] : ...` - creates a poll with a reference tag `identifier`.\n"\
+                         + "`poll [identifier] remove` - removes the poll with the corresponding ID.\n"\
+                         + "`poll [identifier] votes` - shows current vote counts for a poll."
             ),
 
             Command(
                 aliases = ["polls"],
-                func = polls
+                func = polls,
+                helpText = "`polls` - prints a list of the currently active polls"
             ),
 
             Command(
                 aliases = ["publish-poll", "publish-polls"],
-                func = publishPoll
+                func = publishPoll,
+                helpText = "`publish-poll [identifier]` - publishes your poll with the specified identifier"
             ),
 
             Command(
                 aliases = ["respond", "poll-answer", "poll-respond", "answer-poll", "vote"],
-                func = respondToPoll
+                func = respondToPoll,
+                helpText = "`vote [identifier] [option-number]` - votes on a poll. Use option IDs, not the option's text"
             )
         ]
 
