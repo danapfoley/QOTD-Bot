@@ -494,7 +494,7 @@ class CommandKeeper:
                 aliases = ["q","question"],
                 func = question,
                 helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
-                         + "`question [identifier] remove` - removes the question with the corresponding ID."\
+                         + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.`",
                 privateOnly = True
             ),
