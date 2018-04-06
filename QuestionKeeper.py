@@ -63,6 +63,12 @@ class Question:
     def prettyPrintWithAnswer(self):
         return self.prettyPrint() + " : " + self.correctAnswer
 
+    def countAnswers(self):
+        return len(self.answeredBy)
+    
+    def countGuesses(self):
+        return len(self.guesses)
+
     def publish(self):
         if self.published:
             return False

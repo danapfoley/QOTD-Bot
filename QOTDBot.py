@@ -194,6 +194,38 @@ def question(channel, userID, argsString):
             say(channel, response) 
             return
 
+    if question == "count":
+        q = questionKeeper.getQuestionByID(identifier)
+
+        numAnswers = q.countAnswers()
+        numGuesses = q.countGuesses()
+
+        if not q:
+            response = "I couldn't find a question of yours with that ID"
+            say(channel, response)
+            return
+        response = str(numAnswers) + (" people" if numAnswers != 1 else " person") + " answered question " + q.qID + " correctly"
+
+        if numAnswers > 0:
+            response += ":\n"
+
+            response += "\n".join([("-" + getNameByID(answeredByID)) for answeredByID in q.answeredBy])
+
+            response += "\n\n"
+
+        response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID
+
+        if numGuesses > 0:
+            response += ":\n"
+
+            response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys()])
+
+            response += "\n\n"
+
+        say(channel, response)
+        return
+
+
     #only get here if a valid question input format is given
     questionAdded = questionKeeper.addQuestion(userID = userID, qID = identifier, questionText = question, correctAnswer = answer)
     
@@ -461,7 +493,8 @@ class CommandKeeper:
                 aliases = ["q","question"],
                 func = question,
                 helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
-                         + "`question [identifier] remove` - removes the question with the corresponding ID.",
+                         + "`question [identifier] remove` - removes the question with the corresponding ID."\
+                         + "`question [identifier] count` - shows stats on who has answered/guessed a question.`",
                 privateOnly = True
             ),
             
