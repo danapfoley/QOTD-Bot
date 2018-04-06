@@ -3,11 +3,13 @@ import os
 import time
 import re
 import json
+import random
 
 from WellBehavedSlackClient import *
 
 from QuestionKeeper import *
 from ScoreKeeper import *
+from PollKeeper import *
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -18,6 +20,7 @@ slack_client = None
 questionKeeper = None
 scoreKeeper = None
 commandKeeper = None
+pollKeeper = None
 
 # starterbot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
@@ -39,6 +42,8 @@ DEPLOY_CHANNEL = QOTD_CHANNEL
 LOG_FILE = "log.txt"
 USER_LIST_FILE = "userList.json"
 
+POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
+
 
 #Commands stuff
 #----------------------------------
@@ -55,6 +60,18 @@ def say(channel, response):
         log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
     except ValueError:
         log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
+
+def react(channel, timestamp, emoji):
+    try:
+        slack_client.api_call(
+            "reactions.add",
+            channel = channel,
+            timestamp = timestamp,
+            name = emoji
+        )
+        log("QOTD Bot reacts with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
+    except ValueError:
+        log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
 
 def log(response):
     file = open(LOG_FILE, "a", newline='', encoding='utf8')
@@ -134,7 +151,7 @@ def checkPrivate(messageEvent):
 def needsMoreArgs(channel):
     say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
 
-def scores(channel, userID, argsString):
+def scores(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
     response = ""
 
@@ -155,12 +172,12 @@ def scores(channel, userID, argsString):
     response += scoreKeeper.getTotalScoresRanked()
     say(channel, response)
 
-def scoresUnranked(channel, userID, argsString):
+def scoresUnranked(channel, userID, argsString, timestamp):
     response = scoreKeeper.getTodayScores()
     response += scoreKeeper.getTotalScores()
     say(channel, response)
 
-def question(channel, userID, argsString):
+def question(channel, userID, argsString, timestamp):
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -238,7 +255,7 @@ def question(channel, userID, argsString):
 
     say(channel, response)
 
-def questions(channel, userID, argsString):
+def questions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
     
     if is_channel_private(channel):
@@ -253,7 +270,7 @@ def questions(channel, userID, argsString):
     
     say(channel, response)
 
-def removeQuestion(channel, userID, argsString):
+def removeQuestion(channel, userID, argsString, timestamp):
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -264,7 +281,7 @@ def removeQuestion(channel, userID, argsString):
     question(channel, userID, identifier + " remove")
 
 
-def myQuestions(channel, userID, argsString):
+def myQuestions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
     
     response = questionKeeper.listQuestionsByUser(userID)
@@ -276,7 +293,7 @@ def myQuestions(channel, userID, argsString):
     
     say(channel, response)
 
-def publish(channel, userID, argsString):
+def publish(channel, userID, argsString, timestamp):
 
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
@@ -299,7 +316,7 @@ def publish(channel, userID, argsString):
 
     say(channel, response)
     
-def answer(channel, userID, argsString):
+def answer(channel, userID, argsString, timestamp):
 
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
@@ -313,7 +330,7 @@ def answer(channel, userID, argsString):
 
     if checkResponse == "correct":
         qID = questionKeeper.getQuestionByID(identifier).qID #Calling this to get proper capitalization
-        response = "Correct! I'll give you a point\n"
+        response = random.choice(POINT_RESPONSES) + "\n"
 
         if not scoreKeeper.userExists(userID):
             scoreKeeper.addNewUser(userID)
@@ -348,7 +365,7 @@ def answer(channel, userID, argsString):
 
     say(channel, response)
 
-def hello(channel, userID, argsString):
+def hello(channel, userID, argsString, timestamp):
 
     response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
@@ -356,7 +373,7 @@ def hello(channel, userID, argsString):
     say(channel, response)
 
 
-def addPoints(channel, userID, argsString):
+def addPoints(channel, userID, argsString, timestamp):
     args = argsString.split(' ')
 
     if len(args) < 1 or args[0] == "":
@@ -390,7 +407,7 @@ def addPoints(channel, userID, argsString):
     response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(pointsForUser)
     say(DEPLOY_CHANNEL, response)
 
-def expireOldQuestions(channel, userID, argsString):
+def expireOldQuestions(channel, userID, argsString, timestamp):
 
     expiredQuestions = questionKeeper.expireQuestions(userID)
 
@@ -404,7 +421,124 @@ def expireOldQuestions(channel, userID, argsString):
 
     say(channel, response)
 
-def tell(channel, userID, argsString):
+
+def poll(channel, userID, argsString, timestamp):
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    args = argsString.split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    response = ""
+
+    if identifier == "remove":
+        response = "You probably meant to use `poll [identifier] remove`\n"
+        say(channel, response)
+        return
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+    
+    args = args[1].split(" : ") #no longer holding identifier, question and options split
+    question = args[0]
+    optionsList = args[1:]
+
+    optionsDict = {}
+    for i in range(len(optionsList)):
+        optionsDict[str(i+1)] = optionsList[i]
+    
+    if question == "remove":
+        if pollKeeper.removePoll(identifier, "DEV" if userID == DEVELOPER_ID else userID):
+            response = "Okay, I removed that poll"
+            say(channel, response)
+            return
+        else:
+            response = "I couldn't find a poll of yours with that ID"
+            say(channel, response) 
+            return
+
+    if question in ["votes", "status", "results", "check"]:
+        response = pollKeeper.displayResults(identifier)
+        if response is None:
+            response = "I couldn't find a poll with that ID"
+        say(channel, response) 
+        return
+
+
+
+    #only get here if a valid poll input format is given
+    pollAdded = pollKeeper.addPoll(userID = userID, pID = identifier, pollQuestionText = question, options = optionsDict)
+    
+    if pollAdded:
+        response = "Okay, I added your poll with ID " + identifier + ".\n"\
+                 + "It looks like this:\n\n\n" + pollKeeper.getPollByID(identifier).prettyPrint() + "\n\n\n"\
+                 + "Use `publish-poll` to make your poll publicly available, "\
+                 + "or `poll " + identifier + " remove` to remove it"
+    else:
+        response = "A poll with this ID already exists right now. Please use a different one"
+
+    say(channel, response)
+
+def polls(channel, userID, argsString, timestamp):
+    args = argsString.split(' ', 1)
+    
+    response = pollKeeper.listPolls()
+    
+    if response == "":
+        response = "There are no currently active polls"
+    else:
+        response = "Here are all the currently active polls:\n" + response
+    
+    say(channel, response)
+
+def publishPoll(channel, userID, argsString, timestamp):
+    args = argsString.split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    if identifier != "":
+        publishResponse = pollKeeper.publishByID(identifier)
+        if publishResponse == "published":
+            response = "Okay, I published poll " + identifier + ".\n"
+        elif publishResponse == "already published":
+            response = identifier + " is already published.\n"
+        else:
+            response = "I couldn't find a poll with that ID.\n"
+    else:
+        pollKeeper.publishAllByUser(userID)
+        response = "Okay, I've published all of your polls\n"
+
+    newPolls = pollKeeper.firstTimeDisplay()
+    if newPolls != "":
+        say(DEPLOY_CHANNEL, "New polls:\n" + newPolls)
+
+    say(channel, response)
+
+def respondToPoll(channel, userID, argsString, timestamp):
+    args = argsString.split(' ', 1)
+    identifier = args[0] if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+    
+    inputVote = args[1] #no longer holding identifier
+    checkVote = pollKeeper.submitResponse(userID, identifier, inputVote)
+
+    if checkVote == "not found":
+        response = "I couldn't find a poll with that ID.\n"
+        say(channel, response)
+        return
+
+    if checkVote == "bad vote":
+        response = "I couldn't find an option that matches \"" + identifier + "\".\n"
+        say(channel, response)
+        return
+    
+    react(channel, timestamp, "thumbsup")
+
+def tell(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
 
     response = ""
@@ -423,7 +557,7 @@ def tell(channel, userID, argsString):
 
     say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
 
-def devTell(channel, userID, argsString):
+def devTell(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
 
     response = ""
@@ -444,10 +578,10 @@ def devTell(channel, userID, argsString):
 
     say(userChannel, whatToSay)
 
-def announce(channel, userID, argsString):
+def announce(channel, userID, argsString, timestamp):
     say(DEPLOY_CHANNEL, argsString)
 
-def refreshUserList(channel, userID, argsString):
+def refreshUserList(channel, userID, argsString, timestamp):
     usersJson = {}
 
     usersList = slack_client.api_call("users.list")["members"]
@@ -572,6 +706,27 @@ class CommandKeeper:
                 aliases = ["refresh-user-list"],
                 func = refreshUserList,
                 devOnly = True
+            ),
+
+            Command(
+                aliases = ["poll", "p"],
+                func = poll,
+                privateOnly = True
+            ),
+
+            Command(
+                aliases = ["polls"],
+                func = polls
+            ),
+
+            Command(
+                aliases = ["publish-poll", "publish-polls"],
+                func = publishPoll
+            ),
+
+            Command(
+                aliases = ["respond", "poll-answer", "poll-respond", "answer-poll", "vote"],
+                func = respondToPoll
             )
         ]
 
@@ -600,6 +755,10 @@ class CommandKeeper:
         """
         userID = event["user"]
         channel = event["channel"]
+        if "ts" in event:
+            timestamp = event["ts"]
+        else:
+            timestamp = time.time()
 
         #Clean up multiple whitespace characters for better uniformity for all commands
         #e.g. "This   is:       some text" turns into "This is: some text"
@@ -643,7 +802,7 @@ class CommandKeeper:
 
         
         #If we make it through all the checks, we can actually run the corresponding function
-        cmd.func(channel, userID, args)
+        cmd.func(channel, userID, args, timestamp)
 
 
 #----------------------------------
@@ -709,6 +868,7 @@ if __name__ == "__main__":
         questionKeeper = QuestionKeeper()
         scoreKeeper = ScoreKeeper()
         commandKeeper = CommandKeeper()
+        pollKeeper = PollKeeper()
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`

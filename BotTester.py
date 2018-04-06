@@ -3,6 +3,9 @@ import QOTDBot as qb
 def testSay(channel, response):
     print(response)
 
+def testReact(channel, timestamp, emoji):
+    print(":" + emoji + ":")
+
 def testLog(response):
     pass
 
@@ -20,6 +23,7 @@ def testGetDirectChannel(userID):
 
 #overwrite slack-based functions
 qb.say = testSay
+qb.react = testReact
 qb.log = testLog
 qb.getNameByID = testGetNameByID
 qb.getReferenceByID = testGetReferenceByID
@@ -30,6 +34,7 @@ if __name__ == "__main__":
     qb.questionKeeper = qb.QuestionKeeper()
     qb.scoreKeeper = qb.ScoreKeeper()
     qb.commandKeeper = qb.CommandKeeper()
+    qb.pollKeeper = qb.PollKeeper()
 
     #remove command restrictions
     for c in qb.commandKeeper.commandsList:
