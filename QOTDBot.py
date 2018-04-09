@@ -711,7 +711,6 @@ class CommandKeeper:
             Command(
                 aliases = ["poll", "p"],
                 func = poll,
-                privateOnly = True,
                 helpText = "`poll [identifier] [question] : [option 1] : [option 2] : ...` - creates a poll with a reference tag `identifier`.\n"\
                          + "`poll [identifier] remove` - removes the poll with the corresponding ID.\n"\
                          + "`poll [identifier] votes` - shows current vote counts for a poll."
