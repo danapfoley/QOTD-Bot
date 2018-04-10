@@ -6,6 +6,7 @@ import shutil
 MAX_GUESSES = 3
 
 QUESTIONS_FILE_NAME = "questions.json"
+OLD_QUESTIONS_FILE_NAME = "questionsHistory.json"
 
 def splitCategory(qID):
     #Splitting the category from qID.
@@ -84,6 +85,16 @@ class QuestionKeeper:
         self.loadQuestionsFromFile()
 
     def loadQuestionsFromFile(self):
+        try:
+            file = open(QUESTIONS_FILE_NAME)
+            questionsJson = json.load(file)
+        except IOError:
+            # If not exists, create the file
+            questionsJson = {"questions" : []}
+            file = open(QUESTIONS_FILE_NAME,"w+")
+            json.dump(questionsJson, file, indent = 4)
+        file.close()
+
         with open(QUESTIONS_FILE_NAME) as qFile:
             d = json.load(qFile)
             for qJson in d["questions"]:
@@ -109,6 +120,26 @@ class QuestionKeeper:
             json.dump(questionsJson, tempfile, indent = 4)
 
         shutil.move(tempfile.name, QUESTIONS_FILE_NAME)
+
+    def writeRemovedQuestionsToFile(self, removedQuestionsList):
+        try:
+            file = open(OLD_QUESTIONS_FILE_NAME)
+            questionsJson = json.load(file)
+        except IOError:
+            # If not exists, create the file
+            questionsJson = {"oldQuestions" : []}
+            file = open(OLD_QUESTIONS_FILE_NAME,"w+")
+            json.dump(questionsJson, file, indent = 4)
+        file.close()
+        
+        for q in removedQuestionsList:
+            questionsJson["oldQuestions"].insert(0, vars(q))
+
+        tempfile = NamedTemporaryFile(delete=False)
+        with open(QUESTIONS_FILE_NAME, 'w') as tempfile:
+            json.dump(questionsJson, tempfile, indent = 4)
+
+        shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
 
     def addQuestion(self, userID, qID, questionText, correctAnswer = ""):
         qID, category = splitCategory(qID)
@@ -218,10 +249,12 @@ class QuestionKeeper:
                 questionsExpired.append(q)
 
         self.questionList = [q for q in self.questionList if q not in questionsExpired]
-        questionsExpired = [q.prettyPrintWithAnswer() for q in questionsExpired]
+        questionsExpiredStrings = [q.prettyPrintWithAnswer() for q in questionsExpired]
+        
         self.writeQuestionsToFile()
+        self.writeRemovedQuestionsToFile(questionsExpired)
 
-        return questionsExpired
+        return questionsExpiredStrings
 
     def publishByID(self, qID):
         q = self.getQuestionByID(qID)
@@ -248,6 +281,28 @@ class QuestionKeeper:
                 output += q.prettyPrint() + "\n"
         self.writeQuestionsToFile()
         return output
+
+    def getOldQuestionsString(self):
+        file = open(OLD_QUESTIONS_FILE_NAME, "r")
+        oldQuestions = json.load(file)
+        file.close()
+
+        now = time.time()
+        elapsedTime = 60 * 60 * 24 #24 hours
+        response = ""
+
+        for q in oldQuestions["oldQuestions"]:
+            #Questions are inserted at the beginning of the data
+            #So it's sorted newer to older
+            #Thus if we hit a question older than 24hrs, we can stop searching
+            if (now - q["initTime"]) > elapsedTime:
+                break
+            response += "" if q["category"] == "" else (q["category"] + " ")
+            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + q["correctAnswer"]
+
+            response += "\n"
+
+        return response
 
 
 

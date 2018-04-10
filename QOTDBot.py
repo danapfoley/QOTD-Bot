@@ -367,6 +367,16 @@ def answer(channel, userID, argsString, timestamp):
 
     say(channel, response)
 
+def oldQuestions(channel, userID, argsString, timestamp):
+    response = questionKeeper.getOldQuestionsString()
+
+    if response != "":
+        response = "Here are all of the questions I found that were expired in the last 24 hours:\n\n" + response
+    else:
+        response = "I couldn't find any questions that were expired in the last 24 hours"
+    say(channel, response)
+    
+
 def hello(channel, userID, argsString, timestamp):
 
     response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
@@ -734,6 +744,12 @@ class CommandKeeper:
                 aliases = ["respond", "poll-answer", "poll-respond", "answer-poll", "vote"],
                 func = respondToPoll,
                 helpText = "`vote [identifier] [option-number]` - votes on a poll. Use option IDs, not the option's text"
+            ),
+
+            Command(
+                aliases = ["old-questions", "expired-questions", "old-answers"],
+                func = oldQuestions,
+                helpText = "`old-questions` - gets a list of questions that were expired in the last 24 hours"
             )
         ]
 
