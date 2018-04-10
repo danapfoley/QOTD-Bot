@@ -250,10 +250,12 @@ def question(channel, userID, argsString, timestamp):
         response = "Okay, I added your question with ID " + identifier + ".\n"\
                  + "Use `publish` to make your questions publicly available, "\
                  + "or `question " + identifier + " remove` to remove it"
+        say(channel, response)
+        if answer == "":
+            say(channel, "Warning: Your question doesn't seem to have a correct answer. Make sure this is intended before publishing.")
     else:
         response = "A question with this ID already exists right now. Please use a different one"
-
-    say(channel, response)
+        say(channel, response)
 
 def questions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
