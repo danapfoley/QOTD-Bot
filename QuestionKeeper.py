@@ -283,8 +283,14 @@ class QuestionKeeper:
         return output
 
     def getOldQuestionsString(self):
-        file = open(OLD_QUESTIONS_FILE_NAME, "r")
-        oldQuestions = json.load(file)
+        try:
+            file = open(OLD_QUESTIONS_FILE_NAME)
+            oldQuestions = json.load(file)
+        except IOError:
+            # If not exists, create the file
+            oldQuestions = {"oldQuestions" : []}
+            file = open(OLD_QUESTIONS_FILE_NAME,"w+")
+            json.dump(oldQuestions, file, indent = 4)
         file.close()
 
         now = time.time()
