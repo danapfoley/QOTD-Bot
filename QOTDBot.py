@@ -611,9 +611,10 @@ def refreshUserList(channel, userID, argsString, timestamp):
 
 
 class Command:
-    def __init__(self, aliases, func, helpText = "", publicOnly = False, privateOnly = False, devOnly = False):
+    def __init__(self, aliases, func, category = "", helpText = "", publicOnly = False, privateOnly = False, devOnly = False):
         self.aliases = aliases
         self.func = func
+        self.category = category
         self.helpText = helpText
         self.publicOnly = publicOnly
         self.privateOnly = privateOnly
@@ -622,22 +623,26 @@ class Command:
 
 class CommandKeeper:
     def __init__(self):
+        self.helpTextDict = {"Misc" : []}
         self.commandsList = [
             Command(
                 aliases = ["points","score","scores"],
                 func = scores,
+                category = "Scoring and Points",
                 helpText = "`scores <@ user>` - prints a list of today's scores and running totals, for `<@ user>` if given, for everyone otherwise"
             ),
             
             Command(
                 aliases = ["score-unranked","scores-unranked"],
                 func = scoresUnranked,
+                category = "Scoring and Points",
                 helpText = "`scores-unranked` - prints a list of today's scores and running totals, sorted alphabetically instead of by ranking"
             ),
             
             Command(
                 aliases = ["q","question"],
                 func = question,
+                category = "Questions and Answers",
                 helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
@@ -647,24 +652,29 @@ class CommandKeeper:
             Command(
                 aliases = ["qs","questions"],
                 func = questions,
+                
+                category = "Questions and Answers",
                 helpText = "`questions` - prints a list of today's published questions"
             ),
 
             Command(
                 aliases = ["rq", "remove", "remove-question"],
                 func = removeQuestion,
+                category = "Questions and Answers",
                 helpText = "`remove [identifier]` removes the question with the corresponding ID" 
             ),
 
             Command(
                 aliases = ["my-questions"],
                 func = myQuestions,
+                category = "Questions and Answers",
                 helpText = "`my-questions` - prints a list of your questions, published or not"
             ),
 
             Command(
                 aliases = ["publish"],
                 func = publish,
+                category = "Questions and Answers",
                 helpText = "`publish <identifier>` - publishes the corresponding question if `identifier` given. "\
                          + "Publishes all of your questions otherwise."
             ),
@@ -672,6 +682,7 @@ class CommandKeeper:
             Command(
                 aliases = ["a","answer"],
                 func = answer,
+                category = "Questions and Answers",
                 helpText = "`answer [identifier] [your answer]` - Must be used in a private channel. "\
                          + "Checks your `answer` for the corresponding question.",
                 privateOnly = True
@@ -686,6 +697,7 @@ class CommandKeeper:
             Command(
                 aliases = ["add-point","add-points"],
                 func = addPoints,
+                category = "Scoring and Points",
                 helpText = "`add-point(s) [@ user] <# points>` "\
                          + "- gives `# points` to `@ user` if specified, 1 point by default",
                 publicOnly = True
@@ -694,7 +706,15 @@ class CommandKeeper:
             Command(
                 aliases = ["expire-old-questions"],
                 func = expireOldQuestions,
+                category = "Questions and Answers",
                 helpText = "`expire-old-questions` - removes all questions published more than 18 hours ago"
+            ),
+
+            Command(
+                aliases = ["old-questions", "expired-questions", "old-answers"],
+                func = oldQuestions,
+                category = "Questions and Answers",
+                helpText = "`old-questions` - gets a list of questions that were expired in the last 24 hours"
             ),
 
             Command(
@@ -723,6 +743,7 @@ class CommandKeeper:
             Command(
                 aliases = ["poll", "p"],
                 func = poll,
+                category = "Polls",
                 helpText = "`poll [identifier] [question] : [option 1] : [option 2] : ...` - creates a poll with a reference tag `identifier`.\n"\
                          + "`poll [identifier] remove` - removes the poll with the corresponding ID.\n"\
                          + "`poll [identifier] votes` - shows current vote counts for a poll."
@@ -731,38 +752,47 @@ class CommandKeeper:
             Command(
                 aliases = ["polls"],
                 func = polls,
+                category = "Polls",
                 helpText = "`polls` - prints a list of the currently active polls"
             ),
 
             Command(
                 aliases = ["publish-poll", "publish-polls"],
                 func = publishPoll,
+                category = "Polls",
                 helpText = "`publish-poll [identifier]` - publishes your poll with the specified identifier"
             ),
 
             Command(
                 aliases = ["respond", "poll-answer", "poll-respond", "answer-poll", "vote"],
                 func = respondToPoll,
+                category = "Polls",
                 helpText = "`vote [identifier] [option-number]` - votes on a poll. Use option IDs, not the option's text"
-            ),
-
-            Command(
-                aliases = ["old-questions", "expired-questions", "old-answers"],
-                func = oldQuestions,
-                helpText = "`old-questions` - gets a list of questions that were expired in the last 24 hours"
             )
         ]
 
+        for command in self.commandsList:
+            if command.helpText == "":
+                continue
+            if command.category == "" or command.category == "Misc":
+                self.helpTextDict["Misc"].append(command.helpText)
+            elif command.category in self.helpTextDict.keys():
+                self.helpTextDict[command.category].append(command.helpText)
+            else:
+                self.helpTextDict[command.category] = [command.helpText]
+        for category in self.helpTextDict.keys():
+            self.helpTextDict[category].sort()
+
     def help(self, channel):
         response = ""
-        for cmd in self.commandsList:
-            #Commands without helpText get cleaned up later
-            response += cmd.helpText + "\n"
 
-        #Sort the responses alphabetically and remove extra stuff for neatness
-        sortedLines = sorted(response.split('\n'))
-        sortedLines = [line for line in sortedLines if line not in ["","\n"]]
-        response = '\n\n'.join(sortedLines)
+        for category in self.helpTextDict:
+            response += "*" + category + "*:\n"
+            for helpText in self.helpTextDict[category]:
+                for line in helpText.split("\n"):
+                    response += "    " + line + "\n\n"
+            response += "\n\n"
+        response = response[:-2]
 
         say(channel, "Here's a list of commands I know:\n\n" + response)
 
