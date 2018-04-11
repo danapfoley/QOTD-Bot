@@ -28,6 +28,7 @@ class Question:
         self.category = category
         self.initTime = time.time()
         self.publishTime = 0
+        self.expireTime = 0
         self.published = False
         self.justPublished = False
         self.answeredBy = []
@@ -88,7 +89,7 @@ class QuestionKeeper:
         try:
             file = open(QUESTIONS_FILE_NAME)
             questionsJson = json.load(file)
-        except IOError:
+        except:
             # If not exists, create the file
             questionsJson = {"questions" : []}
             file = open(QUESTIONS_FILE_NAME,"w+")
@@ -246,6 +247,7 @@ class QuestionKeeper:
         questionsExpired = []
         for q in self.questionList:
             if q.timeToExpire() and q.userID == userID:
+                q.expireTime = time.time()
                 questionsExpired.append(q)
 
         self.questionList = [q for q in self.questionList if q not in questionsExpired]
@@ -301,7 +303,7 @@ class QuestionKeeper:
             #Questions are inserted at the beginning of the data
             #So it's sorted newer to older
             #Thus if we hit a question older than 24hrs, we can stop searching
-            if (now - q["initTime"]) > elapsedTime:
+            if (now - q["expireTime"]) > elapsedTime:
                 break
             response += "" if q["category"] == "" else (q["category"] + " ")
             response += "(" + q["qID"] + "): " + q["questionText"] + " : " + q["correctAnswer"]
