@@ -229,7 +229,7 @@ def question(channel, userID, argsString, timestamp):
 
             response += "\n".join([("-" + getNameByID(answeredByID)) for answeredByID in q.answeredBy])
 
-            response += "\n\n"
+        response += "\n\n"
 
         response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID \
                  + ", and " + str(numGuesses - numAnswers) + " didn't guess the right answer"
