@@ -65,6 +65,9 @@ class Question:
     def prettyPrintWithAnswer(self):
         return self.prettyPrint() + " : " + self.correctAnswer
 
+    def getAnsweredUsers(self):
+        return self.answeredBy
+
     def countAnswers(self):
         return len(self.answeredBy)
     
@@ -137,7 +140,7 @@ class QuestionKeeper:
             questionsJson["oldQuestions"].insert(0, vars(q))
 
         tempfile = NamedTemporaryFile(delete=False)
-        with open(QUESTIONS_FILE_NAME, 'w') as tempfile:
+        with open(OLD_QUESTIONS_FILE_NAME, 'w') as tempfile:
             json.dump(questionsJson, tempfile, indent = 4)
 
         shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
@@ -251,12 +254,11 @@ class QuestionKeeper:
                 questionsExpired.append(q)
 
         self.questionList = [q for q in self.questionList if q not in questionsExpired]
-        questionsExpiredStrings = [q.prettyPrintWithAnswer() for q in questionsExpired]
         
         self.writeQuestionsToFile()
         self.writeRemovedQuestionsToFile(questionsExpired)
 
-        return questionsExpiredStrings
+        return questionsExpired
 
     def publishByID(self, qID):
         q = self.getQuestionByID(qID)

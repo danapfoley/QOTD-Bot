@@ -420,10 +420,18 @@ def addPoints(channel, userID, argsString, timestamp):
 def expireOldQuestions(channel, userID, argsString, timestamp):
 
     expiredQuestions = questionKeeper.expireQuestions(userID)
+    expiredQuestionsStrings = []
+    for q in expiredQuestions:
+        expiredQuestionsStrings.append(q.prettyPrintWithAnswer())
+        if len(q.getAnsweredUsers()) > 0:
+            expiredQuestionsStrings.append("  Answered by:")
+        for answeredUserID in q.getAnsweredUsers():
+            expiredQuestionsStrings.append("    -" + getNameByID(answeredUserID))
+        expiredQuestionsStrings.append("\n")
 
     if len(expiredQuestions) > 0:
         response = "The following questions have expired:\n"
-        response += '\n'.join(expiredQuestions)
+        response += '\n'.join(expiredQuestionsStrings)
         if channel != DEPLOY_CHANNEL:
             say(DEPLOY_CHANNEL, response)
     else:
