@@ -34,6 +34,7 @@ MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
 DEBUG_CHANNEL = "G9DHWHZP1"
 TEST_CHANNEL = "C9DBNUYNL"
 QOTD_CHANNEL = "C61L4NENS"
+POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM"
 
 DEVELOPER_ID = "U88LK3JN9" #Dana
 
@@ -226,17 +227,14 @@ def question(channel, userID, argsString, timestamp):
 
         if numAnswers > 0:
             response += ":\n"
-
             response += "\n".join([("-" + getNameByID(answeredByID)) for answeredByID in q.answeredBy])
 
         response += "\n\n"
-
         response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID \
                  + ", and " + str(numGuesses - numAnswers) + " didn't guess the right answer"
 
         if (numGuesses - numAnswers) > 0:
             response += ":\n"
-
             response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
 
         say(channel, response)
@@ -339,8 +337,8 @@ def answer(channel, userID, argsString, timestamp):
             scoreKeeper.addNameToUser(userID, getNameByID(userID))
 
         scoreKeeper.addUserPoint(userID)
-        #say(DEPLOY_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
-        #                    + ("\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(qID) else ""))
+        say(POINT_ANNOUNCEMENT_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
+                            + ("\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(qID) else ""))
 
     elif checkResponse == "incorrect":
         q = questionKeeper.getQuestionByID(identifier)
