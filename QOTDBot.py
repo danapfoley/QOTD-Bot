@@ -193,6 +193,9 @@ def question(channel, userID, argsString, timestamp):
         say(channel, response)
         return
     
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
     args = args[1] #no longer holding identifier
     colonIndex = args.rfind(":")
     if colonIndex == -1:
@@ -278,7 +281,7 @@ def removeQuestion(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
-    question(channel, userID, identifier + " remove")
+    question(channel, userID, identifier + " remove", timestamp)
 
 
 def myQuestions(channel, userID, argsString, timestamp):
@@ -424,9 +427,9 @@ def expireOldQuestions(channel, userID, argsString, timestamp):
     for q in expiredQuestions:
         expiredQuestionsStrings.append(q.prettyPrintWithAnswer())
         if len(q.getAnsweredUsers()) > 0:
-            expiredQuestionsStrings.append("  Answered by:")
+            expiredQuestionsStrings.append("    Answered by:")
         for answeredUserID in q.getAnsweredUsers():
-            expiredQuestionsStrings.append("    -" + getNameByID(answeredUserID))
+            expiredQuestionsStrings.append("        -" + getNameByID(answeredUserID))
         expiredQuestionsStrings.append("\n")
 
     if len(expiredQuestions) > 0:
