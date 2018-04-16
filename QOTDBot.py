@@ -183,8 +183,16 @@ def question(channel, userID, argsString, timestamp):
         needsMoreArgs(channel)
         return
 
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+    
     args = argsString.split(' ', 1)
-    identifier = args[0] if len(args) > 0 else ""
+
+    identifier = (category + args[0]) if len(args) > 0 else ""
 
     response = ""
 
