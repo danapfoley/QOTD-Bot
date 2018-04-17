@@ -4,6 +4,7 @@ import time
 import re
 import json
 import random
+import traceback
 
 from WellBehavedSlackClient import *
 
@@ -29,14 +30,13 @@ bot_id = "UNKNOWN"
 
 # constants
 RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
-HELP_COMMAND = "help"
-MENTION_REGEX = "^<@(|[WU].+?)>(.*)"
-DEBUG_CHANNEL = "G9DHWHZP1"
-TEST_CHANNEL = "C9DBNUYNL"
-QOTD_CHANNEL = "C61L4NENS"
-POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM"
+MENTION_REGEX = "^<@(|[WU].+?)>(.*)" #For parsing mentions of @QOTD_Bot at the beginning of a message
+
+QOTD_CHANNEL = "C61L4NENS" #Where new info about questions and polls gets announced
+POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM" #Where points get announced
 
 DEVELOPER_ID = "U88LK3JN9" #Dana
+DEVELOPER_CHANNEL = "D9C0FSD0R" #Direct message channel with Dana
 
 DEPLOY_CHANNEL = QOTD_CHANNEL
 
@@ -79,6 +79,13 @@ def log(response):
     file.write(response)
     file.close()
     print(response)
+
+def devLog(response):
+    global DEVELOPER_CHANNEL
+    if DEVELOPER_CHANNEL == "" or DEVELOPER_CHANNEL is None:
+        DEVELOPER_CHANNEL = getDirectChannel(DEVELOPER_ID)
+
+    say(DEVELOPER_CHANNEL, response)
 
 def getNameByID(userID):
     usersDict = {}
@@ -872,7 +879,10 @@ class CommandKeeper:
 
         
         #If we make it through all the checks, we can actually run the corresponding function
-        cmd.func(channel, userID, args, timestamp)
+        try:
+            cmd.func(channel, userID, args, timestamp)
+        except Exception as e:
+            devLog(getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n" + str(e) + "\n" + traceback.format_exc())
 
 
 #----------------------------------
