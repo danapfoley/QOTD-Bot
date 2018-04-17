@@ -211,14 +211,18 @@ def question(channel, userID, argsString, timestamp):
     if len(args) < 2:
         needsMoreArgs(channel)
         return
-    args = args[1] #no longer holding identifier
-    colonIndex = args.rfind(":")
-    if colonIndex == -1:
-        question = args.strip()
-        answer = ""
-    else:
-        question = args[:colonIndex].strip()
-        answer = args[colonIndex+1:].strip()
+    args = args[1].split(" : ") #no longer holding identifier
+    #args should now look like: "question text : answer1 : answer2 : ..."
+    #   or "question text"
+    
+    if len(args) < 1:
+        needsMoreArgs(channel)
+        return
+    
+    question = args[0].strip()
+    
+    if len(args) > 1:
+        answers = [answer.strip() for answer in args[1:]]
 
     if question == "remove":
         if questionKeeper.removeQuestion(identifier, "DEV" if userID == DEVELOPER_ID else userID):
@@ -260,7 +264,7 @@ def question(channel, userID, argsString, timestamp):
 
 
     #only get here if a valid question input format is given
-    questionAdded = questionKeeper.addQuestion(userID = userID, qID = identifier, questionText = question, correctAnswer = answer)
+    questionAdded = questionKeeper.addQuestion(userID = userID, qID = identifier, questionText = question, correctAnswers = answers)
     
     if questionAdded:
         response = "Okay, I added your question with ID " + identifier + ".\n"\
@@ -882,7 +886,7 @@ class CommandKeeper:
         try:
             cmd.func(channel, userID, args, timestamp)
         except Exception as e:
-            devLog(getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n" + str(e) + "\n" + traceback.format_exc())
+            devLog(getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n\n" + str(e) + "\n\n" + traceback.format_exc())
 
 
 #----------------------------------

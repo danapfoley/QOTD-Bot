@@ -20,11 +20,11 @@ def splitCategory(qID):
 
 
 class Question:
-    def __init__(self, userID, qID, questionText, correctAnswer = "", category = ""):
+    def __init__(self, userID, qID, questionText, correctAnswers = [], category = ""):
         self.userID = userID
         self.qID = qID
         self.questionText = questionText
-        self.correctAnswer = correctAnswer
+        self.correctAnswers = correctAnswers
         self.category = category
         self.initTime = time.time()
         self.publishTime = 0
@@ -49,10 +49,12 @@ class Question:
         return answer
 
     def checkAnswer(self, userID, inputAnswer):
-        match = self.cleanUpAnswer(self.correctAnswer) == self.cleanUpAnswer(inputAnswer)
-        if match and userID not in self.answeredBy:
-            self.answeredBy.append(userID)
-        return match
+        for correctAnswer in self.correctAnswers:
+            match = self.cleanUpAnswer(correctAnswer) == self.cleanUpAnswer(inputAnswer)
+            if match and userID not in self.answeredBy:
+                self.answeredBy.append(userID)
+                return True
+        return False
 
     def timeToExpire(self):
         return (time.time() - self.publishTime) > 60 * 60 * 18
@@ -63,7 +65,7 @@ class Question:
         return output
 
     def prettyPrintWithAnswer(self):
-        return self.prettyPrint() + " : " + self.correctAnswer
+        return self.prettyPrint() + " : " + " : ".join(self.correctAnswers)
 
     def getAnsweredUsers(self):
         return self.answeredBy
@@ -102,7 +104,7 @@ class QuestionKeeper:
         with open(QUESTIONS_FILE_NAME) as qFile:
             d = json.load(qFile)
             for qJson in d["questions"]:
-                q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswer"], qJson["category"])
+                q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswers"], qJson["category"])
                 q.initTime = qJson["initTime"]
                 q.publishTime = qJson["publishTime"]
                 q.published = qJson["published"]
@@ -145,14 +147,14 @@ class QuestionKeeper:
 
         shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
 
-    def addQuestion(self, userID, qID, questionText, correctAnswer = ""):
+    def addQuestion(self, userID, qID, questionText, correctAnswers = []):
         qID, category = splitCategory(qID)
 
         for q in self.questionList:
             if qID.lower() == q.qID.lower():
                 return False
         
-        self.questionList.append(Question(userID, qID, questionText, correctAnswer, category))
+        self.questionList.append(Question(userID, qID, questionText, correctAnswers, category))
 
         #save new data
         self.writeQuestionsToFile()
@@ -210,7 +212,7 @@ class QuestionKeeper:
             if q.guesses[userID] >= MAX_GUESSES + 1:
                 self.writeQuestionsToFile()
                 return "max guesses"
-            elif q.correctAnswer == "":
+            elif q.correctAnswers == []:
                 self.writeQuestionsToFile()
                 return "needsManual"
             elif q.checkAnswer(userID, inputAnswer):
@@ -308,7 +310,7 @@ class QuestionKeeper:
             if (now - q["expireTime"]) > elapsedTime:
                 break
             response += "" if q["category"] == "" else (q["category"] + " ")
-            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + q["correctAnswer"]
+            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + q["correctAnswers"]
 
             response += "\n"
 
