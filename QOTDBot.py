@@ -225,6 +225,8 @@ def question(channel, userID, argsString, timestamp):
     
     if len(args) > 1:
         answers = [answer.strip() for answer in args[1:]]
+    else:
+        answers = []
 
     if question == "remove":
         if questionKeeper.removeQuestion(identifier, "DEV" if userID == DEVELOPER_ID else userID):
@@ -273,7 +275,7 @@ def question(channel, userID, argsString, timestamp):
                  + "Use `publish` to make your questions publicly available, "\
                  + "or `question " + identifier + " remove` to remove it"
         say(channel, response)
-        if answer == "":
+        if answers == []:
             say(channel, "Warning: Your question doesn't seem to have a correct answer. Make sure this is intended before publishing.")
     else:
         response = "A question with this ID already exists right now. Please use a different one"
@@ -674,7 +676,7 @@ class CommandKeeper:
                 aliases = ["q","question"],
                 func = question,
                 category = "Questions and Answers",
-                helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
+                helpText = "`question [identifier] [question] : <answer1> : <answer2> : ...` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
                 privateOnly = True
