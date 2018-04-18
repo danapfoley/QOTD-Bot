@@ -367,7 +367,8 @@ def answer(channel, userID, argsString, timestamp):
         guessesLeft = MAX_GUESSES - q.guesses[userID]
         response = "Incorrect. You have " + str(guessesLeft) + (" guesses left.\n" if guessesLeft != 1 else " guess left.\n")
         if guessesLeft == 0:
-            response += "The correct answer was \"" + q.correctAnswer + "\". If you think your guess(es) should have been correct, contact " \
+            response += ("The correct answers allowed were " if len(q.correctAnswers) > 1 else "The correct answer was ") \
+                     + ", ".join("\"" + a + "\"" for a in q.correctAnswers) + ". If you think your guess(es) should have been correct, contact " \
                      +  getReferenceByID(q.userID) + ", who submitted the question.\n" 
 
     elif checkResponse == "already answered":
