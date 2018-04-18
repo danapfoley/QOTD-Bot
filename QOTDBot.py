@@ -186,6 +186,8 @@ def scoresUnranked(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def question(channel, userID, argsString, timestamp):
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
     if argsString == "":
         needsMoreArgs(channel)
         return
