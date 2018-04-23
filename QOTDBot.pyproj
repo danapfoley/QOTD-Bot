@@ -30,6 +30,9 @@
     <Compile Include="BotTester.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="MessageReactionMonitor.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="PollKeeper.py">
       <SubType>Code</SubType>
     </Compile>

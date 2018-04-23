@@ -93,7 +93,6 @@ class QuestionKeeper:
     def loadQuestionsFromFile(self):
         try:
             file = open(QUESTIONS_FILE_NAME)
-            questionsJson = json.load(file)
         except:
             # If not exists, create the file
             questionsJson = {"questions" : []}

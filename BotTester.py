@@ -35,6 +35,7 @@ if __name__ == "__main__":
     qb.scoreKeeper = qb.ScoreKeeper()
     qb.commandKeeper = qb.CommandKeeper()
     qb.pollKeeper = qb.PollKeeper()
+    qb.messageReactionMonitor = qb.MessageReactionMonitor()
 
     #remove command restrictions
     for c in qb.commandKeeper.commandsList:

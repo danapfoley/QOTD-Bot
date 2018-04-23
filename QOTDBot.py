@@ -11,6 +11,7 @@ from WellBehavedSlackClient import *
 from QuestionKeeper import *
 from ScoreKeeper import *
 from PollKeeper import *
+from MessageReactionMonitor import *
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -22,8 +23,9 @@ questionKeeper = None
 scoreKeeper = None
 commandKeeper = None
 pollKeeper = None
+messageReactionMonitor = None
 
-# starterbot's user ID in Slack: value is assigned after the bot starts up
+# QOTD Bot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
 
 ###app = Flask(__name__)
@@ -51,8 +53,9 @@ POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fa
 
 #Use this to post a message to a channel
 def say(channel, response):
+    apiResponse = None
     try:
-        slack_client.api_call(
+        apiResponse = slack_client.api_call(
             "chat.postMessage",
             channel=channel,
             text=response,
@@ -61,6 +64,7 @@ def say(channel, response):
         log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
     except ValueError:
         log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
+    return apiResponse
 
 def react(channel, timestamp, emoji):
     try:
@@ -88,7 +92,6 @@ def devLog(response):
     say(DEVELOPER_CHANNEL, response)
 
 def getNameByID(userID):
-    usersDict = {}
 
     #All Slack user IDs start with "U", by convention
     #So this is an easy check for invalid names
@@ -120,6 +123,7 @@ def getNameByID(userID):
             userName = attemptedNameJson["user"]["profile"]["display_name"]
         else:
             userName = attemptedNameJson["user"]["profile"]["real_name"]
+
     else:
         userName = userID
 
@@ -133,8 +137,6 @@ def getIDFromReference(userIDReference):
         userIDReference = userIDReference.replace(char, "")
     userID = userIDReference.strip()
     return userID
-
-
 
 def getDirectChannel(userID):
     dmChannel = slack_client.api_call(
@@ -218,7 +220,9 @@ def question(channel, userID, argsString, timestamp):
     if len(args) < 1:
         needsMoreArgs(channel)
         return
-    
+    else:
+        answers = []
+
     question = args[0].strip()
     
     if len(args) > 1:
@@ -271,7 +275,7 @@ def question(channel, userID, argsString, timestamp):
                  + "Use `publish` to make your questions publicly available, "\
                  + "or `question " + identifier + " remove` to remove it"
         say(channel, response)
-        if answer == "":
+        if answers == []:
             say(channel, "Warning: Your question doesn't seem to have a correct answer. Make sure this is intended before publishing.")
     else:
         response = "A question with this ID already exists right now. Please use a different one"
@@ -380,8 +384,16 @@ def answer(channel, userID, argsString, timestamp):
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
         response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
         directUserChannel = getDirectChannel(userWhoSubmitted)
-        say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
-            + "\nIs this correct?\n(I don't know how to validate answers this way yet)")
+        apiResponse = say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
+            + "\nIs this correct?\nReact to this message with :+1: to give them a point.")
+
+        if not apiResponse is None and "ts" in apiResponse:
+
+            def manualAnswerCallback(userWhoReacted, emoji, data):
+                if 
+
+            messageReactionMonitor.addMonitoredMessage(channel, userID, apiResponse["ts"], {})
+
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
 
@@ -869,7 +881,7 @@ class CommandKeeper:
 
 
         if cmd.devOnly and userID != DEVELOPER_ID:
-            response = "I'm sorry, " + getReferenceByID(originUserID) + ", I'm afraid I can't let you do that."
+            response = "I'm sorry, " + getReferenceByID(userID) + ", I'm afraid I can't let you do that."
             say(channel, response)
             return
 
@@ -913,6 +925,8 @@ def parse_bot_commands(slack_events):
             print("Network error. Retrying in 5 seconds...\n")
             time.sleep(5)
             return None
+        if event["type"] == "reaction_added":
+            messageReactionMonitor.reactionAdded(event["item"]["channel"], event["item"]["ts"], event["user"], event["reaction"])
         if event["type"] == "message" and not "subtype" in event:
             processedEvent = parse_direct_mention(event)
             if processedEvent:
@@ -953,6 +967,7 @@ if __name__ == "__main__":
         scoreKeeper = ScoreKeeper()
         commandKeeper = CommandKeeper()
         pollKeeper = PollKeeper()
+        messageReactionMonitor = MessageReactionMonitor()
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`
