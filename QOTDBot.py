@@ -281,6 +281,48 @@ def question(channel, userID, argsString, timestamp):
         response = "A question with this ID already exists right now. Please use a different one"
         say(channel, response)
 
+def addAnswer(channel, userID, argsString, timestamp):
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+
+    args = argsString.split(' ', 1)
+
+    identifier = (category + args[0]) if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+    args = args[1].split(" : ")  # no longer holding identifier
+    # args should now look like: "[answer1, answer2, ...]"
+    #   or just "[answer1]"
+
+    if len(args) < 1:
+        needsMoreArgs(channel)
+        return
+
+    args = [arg.strip() for arg in args]
+
+    for newAnswer in args:
+        if not questionKeeper.addAnswer(userID, identifier, newAnswer):
+            say(channel, "I couldn't find a question of yours with that ID.\n")
+            return
+
+    if len(args) > 1:
+        say(channel, "Okay, I added the answers \"" + "\", \"".join(args) + "\" to your question " + identifier)
+    else:
+        say(channel, "Okay, I added the answer \"" + args[0] + "\" to your question " + identifier)
+
+
 def questions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
     
@@ -681,7 +723,16 @@ class CommandKeeper:
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
                 privateOnly = True
             ),
-            
+
+            Command(
+                aliases = ["add-answer","add-answers"],
+                func = addAnswer,
+                category = "Questions and Answers",
+                helpText = "`add-answer  [identifier] [new answer]` - adds a new possible answer for the question with the corresponding identifier.\n"\
+                         + "`add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier\n",
+                privateOnly = True
+            ),
+
             Command(
                 aliases = ["qs","questions"],
                 func = questions,

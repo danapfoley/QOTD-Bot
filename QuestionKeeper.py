@@ -56,6 +56,9 @@ class Question:
                 return True
         return False
 
+    def addAnswer(self, newAnswer):
+        self.correctAnswers.append(newAnswer)
+
     def timeToExpire(self):
         return (time.time() - self.publishTime) > 60 * 60 * 18
 
@@ -159,6 +162,19 @@ class QuestionKeeper:
         #save new data
         self.writeQuestionsToFile()
         return True
+
+    def addAnswer(self, userID, qID, newAnswer):
+        qID, category = splitCategory(qID)
+
+        q = self.getUserQuestionByID(qID, userID)
+
+        if q:
+            q.addAnswer(newAnswer)
+            self.writeQuestionsToFile()
+            return True
+        else:
+            return False
+
 
     def removeQuestion(self, qID, userID):
         qID, category = splitCategory(qID)
