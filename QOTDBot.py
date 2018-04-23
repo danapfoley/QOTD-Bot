@@ -729,7 +729,7 @@ class CommandKeeper:
                 func = addAnswer,
                 category = "Questions and Answers",
                 helpText = "`add-answer  [identifier] [new answer]` - adds a new possible answer for the question with the corresponding identifier.\n"\
-                         + "`add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier\n",
+                         + "`add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier",
                 privateOnly = True
             ),
 
