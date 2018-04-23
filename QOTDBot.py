@@ -322,6 +322,39 @@ def addAnswer(channel, userID, argsString, timestamp):
     else:
         say(channel, "Okay, I added the answer \"" + args[0] + "\" to your question " + identifier)
 
+def removeAnswer(channel, userID, argsString, timestamp):
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+
+    args = argsString.split(' ', 1)
+
+    identifier = (category + args[0]) if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+
+    existingAnswer = args[1].strip() #no longer holding identifier
+
+    q = questionKeeper.getUserQuestionByID(identifier, userID)
+    if not q:
+        say(channel, "I couldn't find a question of yours with that ID.\n")
+        return
+    if not questionKeeper.removeAnswer(userID, identifier, existingAnswer):
+        say(channel, "I couldn't find an answer that matches your input.\n The current answers are: " + ", ".join(q.correctAnswers) + "\n Try again with one of those\n")
+        return
+
+    say(channel, "Okay, I removed the answer \"" + existingAnswer + "\" from your question " + identifier)
 
 def questions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
@@ -731,6 +764,14 @@ class CommandKeeper:
                 helpText = "`add-answer  [identifier] [new answer]` - adds a new possible answer for the question with the corresponding identifier.\n"\
                          + "`add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier",
                 privateOnly = True
+            ),
+
+            Command(
+                aliases=["remove-answer"],
+                func=removeAnswer,
+                category="Questions and Answers",
+                helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work\n",
+                privateOnly=True
             ),
 
             Command(
