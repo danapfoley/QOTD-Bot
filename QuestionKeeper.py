@@ -48,12 +48,17 @@ class Question:
 
         return answer
 
-    def checkAnswer(self, userID, inputAnswer):
+    def validateAnswer(self, inputAnswer):
         for correctAnswer in self.correctAnswers:
             match = self.cleanUpAnswer(correctAnswer) == self.cleanUpAnswer(inputAnswer)
-            if match and userID not in self.answeredBy:
-                self.answeredBy.append(userID)
+            if match:
                 return True
+        return False
+
+    def checkAnswer(self, userID, inputAnswer):
+        if self.validateAnswer(inputAnswer) and userID not in self.answeredBy:
+            self.answeredBy.append(userID)
+            return True
         return False
 
     def addAnswer(self, newAnswer):
@@ -236,7 +241,7 @@ class QuestionKeeper:
             if userID in q.answeredBy:
                 return "already answered"
 
-            if inputAnswer.lower() in ["i give up", "give up", "giveup", "igiveup"]:
+            if inputAnswer.lower() in ["i give up", "give up", "giveup", "igiveup"] and not q.validateAnswer(inputAnswer):
                 q.guesses[userID] = MAX_GUESSES
                 self.writeQuestionsToFile()
                 return "gave up"
