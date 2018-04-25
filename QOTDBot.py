@@ -111,7 +111,7 @@ def getNameByID(userID):
     if userID in usersDict:
         userName = usersDict[userID]
         return userName
-    
+
     #Last ditch effort is to do an api call, which we really want to avoid
     attemptedNameJson = slack_client.api_call(
         "users.info",
@@ -168,12 +168,12 @@ def scores(channel, userID, argsString, timestamp):
     #If a user to get scores for is specified
     if len(args) > 0 and args[0] != "":
         scoresForUser = getIDFromReference(args[0])
-        
+
         if getNameByID(scoresForUser) != scoresForUser: #if user name is valid
             response = scoreKeeper.getUserScores(scoresForUser)
         else:
             response = "I couldn't find that user. Use `scores help` for usage instructions"
-        
+
         say(channel, response)
         return
 
@@ -198,7 +198,7 @@ def question(channel, userID, argsString, timestamp):
         if secondQuoteIdx != -1:
             category = argsString[0:secondQuoteIdx]
             argsString = argsString[secondQuoteIdx:]
-    
+
     args = argsString.split(' ', 1)
 
     identifier = (category + args[0]) if len(args) > 0 else ""
@@ -209,14 +209,14 @@ def question(channel, userID, argsString, timestamp):
         response = "You probably meant to use `question [identifier] remove`\n"
         say(channel, response)
         return
-    
+
     if len(args) < 2:
         needsMoreArgs(channel)
         return
     args = args[1].split(" : ") #no longer holding identifier
     #args should now look like: "question text : answer1 : answer2 : ..."
     #   or "question text"
-    
+
     if len(args) < 1:
         needsMoreArgs(channel)
         return
@@ -224,7 +224,7 @@ def question(channel, userID, argsString, timestamp):
         answers = []
 
     question = args[0].strip()
-    
+
     if len(args) > 1:
         answers = [answer.strip() for answer in args[1:]]
 
@@ -235,7 +235,7 @@ def question(channel, userID, argsString, timestamp):
             return
         else:
             response = "I couldn't find a question of yours with that ID"
-            say(channel, response) 
+            say(channel, response)
             return
 
     if question == "count":
@@ -269,7 +269,7 @@ def question(channel, userID, argsString, timestamp):
 
     #only get here if a valid question input format is given
     questionAdded = questionKeeper.addQuestion(userID = userID, qID = identifier, questionText = question, correctAnswers = answers)
-    
+
     if questionAdded:
         response = "Okay, I added your question with ID " + identifier + ".\n"\
                  + "Use `publish` to make your questions publicly available, "\
@@ -283,17 +283,17 @@ def question(channel, userID, argsString, timestamp):
 
 def questions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
-    
+
     if is_channel_private(channel):
         response = questionKeeper.listQuestionsPrivate(userID)
     else:
         response = questionKeeper.listQuestions()
-    
+
     if response == "":
         response = "There are no currently active questions"
     else:
         response = "Here are all the currently active questions:\n" + response
-    
+
     say(channel, response)
 
 def removeQuestion(channel, userID, argsString, timestamp):
@@ -309,14 +309,14 @@ def removeQuestion(channel, userID, argsString, timestamp):
 
 def myQuestions(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
-    
+
     response = questionKeeper.listQuestionsByUser(userID)
 
     if response == "":
         response = "You have no questions right now. Use `question` to add some"
     else:
         response = "Here are all of your questions:\n" + response
-    
+
     say(channel, response)
 
 def publish(channel, userID, argsString, timestamp):
@@ -341,7 +341,7 @@ def publish(channel, userID, argsString, timestamp):
         say(DEPLOY_CHANNEL, "New questions:\n" + newQuestions)
 
     say(channel, response)
-    
+
 def answer(channel, userID, argsString, timestamp):
 
     args = argsString.split(' ', 1)
@@ -350,7 +350,7 @@ def answer(channel, userID, argsString, timestamp):
     if len(args) < 2:
         needsMoreArgs(channel)
         return
-    
+
     inputAnswer = args[1] #no longer holding identifier
     checkResponse = questionKeeper.checkAnswer(userID, identifier, inputAnswer)
 
@@ -372,7 +372,7 @@ def answer(channel, userID, argsString, timestamp):
         response = "Incorrect. You have " + str(guessesLeft) + (" guesses left.\n" if guessesLeft != 1 else " guess left.\n")
         if guessesLeft == 0:
             response += "The correct answer was \"" + q.correctAnswer + "\". If you think your guess(es) should have been correct, contact " \
-                     +  getReferenceByID(q.userID) + ", who submitted the question.\n" 
+                     +  getReferenceByID(q.userID) + ", who submitted the question.\n"
 
     elif checkResponse == "already answered":
         response = "You already answered that question!"
@@ -387,12 +387,37 @@ def answer(channel, userID, argsString, timestamp):
         apiResponse = say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
             + "\nIs this correct?\nReact to this message with :+1: to give them a point.")
 
-        if not apiResponse is None and "ts" in apiResponse:
+        if apiResponse is not None and "ts" in apiResponse:
 
             def manualAnswerCallback(userWhoReacted, emoji, data):
-                if 
+                q = questionKeeper.getQuestionByID(data["qID"])
+                if q is None or userWhoReacted != q.userID:
+                    return False
+                if "+1:" not in emoji:
+                    return False
 
-            messageReactionMonitor.addMonitoredMessage(channel, userID, apiResponse["ts"], {})
+                qID = q.qID
+                pointForUser = data["pointForUser"]
+
+                q.answeredBy.append(pointForUser)
+                questionKeeper.writeQuestionsToFile()
+
+                if not scoreKeeper.userExists(pointForUser):
+                    scoreKeeper.addNewUser(pointForUser)
+                    scoreKeeper.addNameToUser(pointForUser, getNameByID(pointForUser))
+                scoreKeeper.addUserPoint(pointForUser)
+
+                say(POINT_ANNOUNCEMENT_CHANNEL,
+                    "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
+                    + (
+                        "\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(
+                            qID) else ""))
+
+                say(getDirectChannel(pointForUser), "You got the question right!")
+
+                return True
+
+            messageReactionMonitor.addMonitoredMessage(channel, userID, apiResponse["ts"], {"qID" : identifier, "pointForUser" : userID}, manualAnswerCallback)
 
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
@@ -407,13 +432,13 @@ def oldQuestions(channel, userID, argsString, timestamp):
     else:
         response = "I couldn't find any questions that were expired in the last 24 hours"
     say(channel, response)
-    
+
 
 def hello(channel, userID, argsString, timestamp):
 
     response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
-    
+
     say(channel, response)
 
 
@@ -430,7 +455,7 @@ def addPoints(channel, userID, argsString, timestamp):
     if getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
         say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
-    
+
     #Get a string of just digits
     numPointsDigitsOnly = "".join([c for c in numPoints if c.isdigit()])
     #Add back in a negative sign if one was given
@@ -492,7 +517,7 @@ def poll(channel, userID, argsString, timestamp):
     if len(args) < 2:
         needsMoreArgs(channel)
         return
-    
+
     args = args[1].split(" : ") #no longer holding identifier, question and options split
     question = args[0]
     optionsList = args[1:]
@@ -500,7 +525,7 @@ def poll(channel, userID, argsString, timestamp):
     optionsDict = {}
     for i in range(len(optionsList)):
         optionsDict[str(i+1)] = optionsList[i]
-    
+
     if question == "remove":
         if pollKeeper.removePoll(identifier, "DEV" if userID == DEVELOPER_ID else userID):
             response = "Okay, I removed that poll"
@@ -508,21 +533,21 @@ def poll(channel, userID, argsString, timestamp):
             return
         else:
             response = "I couldn't find a poll of yours with that ID"
-            say(channel, response) 
+            say(channel, response)
             return
 
     if question in ["votes", "status", "results", "check"]:
         response = pollKeeper.displayResults(identifier)
         if response is None:
             response = "I couldn't find a poll with that ID"
-        say(channel, response) 
+        say(channel, response)
         return
 
 
 
     #only get here if a valid poll input format is given
     pollAdded = pollKeeper.addPoll(userID = userID, pID = identifier, pollQuestionText = question, options = optionsDict)
-    
+
     if pollAdded:
         response = "Okay, I added your poll with ID " + identifier + ".\n"\
                  + "It looks like this:\n\n\n" + pollKeeper.getPollByID(identifier).prettyPrint() + "\n\n\n"\
@@ -535,14 +560,14 @@ def poll(channel, userID, argsString, timestamp):
 
 def polls(channel, userID, argsString, timestamp):
     args = argsString.split(' ', 1)
-    
+
     response = pollKeeper.listPolls()
-    
+
     if response == "":
         response = "There are no currently active polls"
     else:
         response = "Here are all the currently active polls:\n" + response
-    
+
     say(channel, response)
 
 def publishPoll(channel, userID, argsString, timestamp):
@@ -574,7 +599,7 @@ def respondToPoll(channel, userID, argsString, timestamp):
     if len(args) < 2:
         needsMoreArgs(channel)
         return
-    
+
     inputVote = args[1] #no longer holding identifier
     checkVote = pollKeeper.submitResponse(userID, identifier, inputVote)
 
@@ -587,7 +612,7 @@ def respondToPoll(channel, userID, argsString, timestamp):
         response = "I couldn't find an option that matches \"" + identifier + "\".\n"
         say(channel, response)
         return
-    
+
     react(channel, timestamp, "thumbsup")
 
 def tell(channel, userID, argsString, timestamp):
@@ -599,7 +624,7 @@ def tell(channel, userID, argsString, timestamp):
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
         say(channel, "this command needs more arguments!")
         return
-   
+
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
@@ -618,7 +643,7 @@ def devTell(channel, userID, argsString, timestamp):
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
         say(channel, "this command needs more arguments!")
         return
-   
+
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
@@ -659,7 +684,7 @@ class Command:
         self.publicOnly = publicOnly
         self.privateOnly = privateOnly
         self.devOnly = devOnly
-        
+
 
 class CommandKeeper:
     def __init__(self):
@@ -671,14 +696,14 @@ class CommandKeeper:
                 category = "Scoring and Points",
                 helpText = "`scores <@ user>` - prints a list of today's scores and running totals, for `<@ user>` if given, for everyone otherwise"
             ),
-            
+
             Command(
                 aliases = ["score-unranked","scores-unranked"],
                 func = scoresUnranked,
                 category = "Scoring and Points",
                 helpText = "`scores-unranked` - prints a list of today's scores and running totals, sorted alphabetically instead of by ranking"
             ),
-            
+
             Command(
                 aliases = ["q","question"],
                 func = question,
@@ -688,11 +713,11 @@ class CommandKeeper:
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
                 privateOnly = True
             ),
-            
+
             Command(
                 aliases = ["qs","questions"],
                 func = questions,
-                
+
                 category = "Questions and Answers",
                 helpText = "`questions` - prints a list of today's published questions"
             ),
@@ -701,7 +726,7 @@ class CommandKeeper:
                 aliases = ["rq", "remove", "remove-question"],
                 func = removeQuestion,
                 category = "Questions and Answers",
-                helpText = "`remove [identifier]` removes the question with the corresponding ID" 
+                helpText = "`remove [identifier]` removes the question with the corresponding ID"
             ),
 
             Command(
@@ -874,7 +899,7 @@ class CommandKeeper:
             if splitArguments[1] == "help":
                 say(channel, cmd.helpText)
                 return
-            
+
             args = splitArguments[1] #slice off the command ID, leaving just arguments
         else:
             args = ""
@@ -893,7 +918,7 @@ class CommandKeeper:
             say(channel, "You can't use this command in a public channel. Message me directly instead")
             return
 
-        
+
         #If we make it through all the checks, we can actually run the corresponding function
         try:
             cmd.func(channel, userID, args, timestamp)
@@ -962,7 +987,7 @@ if __name__ == "__main__":
     slack_client = WellBehavedSlackClient(SLACK_BOT_TOKEN)
 
     if slack_client.rtm_connect(with_team_state=False):
-        
+
         questionKeeper = QuestionKeeper()
         scoreKeeper = ScoreKeeper()
         commandKeeper = CommandKeeper()
