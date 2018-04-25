@@ -357,8 +357,6 @@ def removeAnswer(channel, userID, argsString, timestamp):
     say(channel, "Okay, I removed the answer \"" + existingAnswer + "\" from your question " + identifier)
 
 def questions(channel, userID, argsString, timestamp):
-    args = argsString.split(' ', 1)
-    
     if is_channel_private(channel):
         response = questionKeeper.listQuestionsPrivate(userID)
     else:
@@ -369,6 +367,17 @@ def questions(channel, userID, argsString, timestamp):
     else:
         response = "Here are all the currently active questions:\n" + response
     
+    say(channel, response)
+
+
+def questionsRemaining(channel, userID, argsString, timestamp):
+    response = questionKeeper.listIncompleteQuestionsPrivate(userID)
+
+    if response == "":
+        response = "There are no currently active questions that you can answer"
+    else:
+        response = "Here are all the currently active questions you have yet to get correct or use all your guesses on:\n" + response
+
     say(channel, response)
 
 def removeQuestion(channel, userID, argsString, timestamp):
@@ -448,7 +457,14 @@ def answer(channel, userID, argsString, timestamp):
         if guessesLeft == 0:
             response += ("The correct answers allowed were " if len(q.correctAnswers) > 1 else "The correct answer was ") \
                      + ", ".join("\"" + a + "\"" for a in q.correctAnswers) + ". If you think your guess(es) should have been correct, contact " \
-                     +  getReferenceByID(q.userID) + ", who submitted the question.\n" 
+                     +  getReferenceByID(q.userID) + ", who submitted the question.\n"
+
+    elif checkResponse == "gave up":
+        q = questionKeeper.getQuestionByID(identifier)
+        response = ("The correct answers allowed were " if len(q.correctAnswers) > 1 else "The correct answer was ") \
+                    + ", ".join("\"" + a + "\"" for a in
+                                q.correctAnswers) + ". If you think your guess(es) should have been correct, contact " \
+                    + getReferenceByID(q.userID) + ", who submitted the question.\n"
 
     elif checkResponse == "already answered":
         response = "You already answered that question!"
@@ -768,7 +784,7 @@ class CommandKeeper:
 
             Command(
                 aliases=["remove-answer"],
-                func=removeAnswer,
+                func = removeAnswer,
                 category="Questions and Answers",
                 helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work\n",
                 privateOnly=True
@@ -777,9 +793,15 @@ class CommandKeeper:
             Command(
                 aliases = ["qs","questions"],
                 func = questions,
-                
                 category = "Questions and Answers",
                 helpText = "`questions` - prints a list of today's published questions"
+            ),
+
+            Command(
+                aliases = ["questions-remaining"],
+                func = questionsRemaining,
+                category = "Questions and Answers",
+                helpText = "`questions-remaining` - Prints a list of questions that you have yet to answer or use all your guesses on"
             ),
 
             Command(

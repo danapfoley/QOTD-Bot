@@ -236,6 +236,11 @@ class QuestionKeeper:
             if userID in q.answeredBy:
                 return "already answered"
 
+            if inputAnswer.lower() in ["i give up", "give up", "giveup", "igiveup"]:
+                q.guesses[userID] = MAX_GUESSES
+                self.writeQuestionsToFile()
+                return "gave up"
+
             if userID in q.guesses:
                 q.guesses[userID] += 1
             else:
@@ -268,11 +273,21 @@ class QuestionKeeper:
         for q in self.questionList:
             if q.published:
                 if userID not in q.answeredBy \
-                  and userID != q.userID\
+                  and userID != q.userID \
                   and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
                     output += "● "
                 output += q.prettyPrint() + "\n"
         return output
+
+    def listIncompleteQuestionsPrivate(self, userID):
+        output = ""
+        for q in self.questionList:
+            if q.published \
+                    and userID not in q.answeredBy \
+                    and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
+                output += q.prettyPrint() + "\n"
+        return output
+
 
     def listQuestionsByUser(self, userID):
         output = ""
