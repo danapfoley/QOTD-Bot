@@ -75,9 +75,9 @@ def react(channel, timestamp, emoji):
         log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
 
 def log(response):
-    file = open(LOG_FILE, "a", newline='', encoding='utf8')
-    file.write(response)
-    file.close()
+    # file = open(LOG_FILE, "a", newline='', encoding='utf8')
+    # file.write(response)
+    # file.close()
     print(response)
 
 def devLog(response):
