@@ -343,7 +343,7 @@ class QuestionKeeper:
             if (now - q["expireTime"]) > elapsedTime:
                 break
             response += "" if q["category"] == "" else (q["category"] + " ")
-            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + q["correctAnswers"]
+            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + " : ".join(q["correctAnswers"])
 
             response += "\n"
 
