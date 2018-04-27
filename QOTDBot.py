@@ -786,7 +786,7 @@ class CommandKeeper:
                 aliases=["remove-answer"],
                 func = removeAnswer,
                 category="Questions and Answers",
-                helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work\n",
+                helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work",
                 privateOnly=True
             ),
 
