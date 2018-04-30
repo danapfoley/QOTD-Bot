@@ -63,9 +63,9 @@ class WellBehavedSlackClient(SlackClient):
                 text=response,
                 icon_emoji=':robot_face:'
             )
-            self.log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
+            log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
         except ValueError:
-            self.log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
+            log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
 
     # Use this to add an emoji reaction to a message.
     # The timestamp can easily come from the command message, if that's what you're reacting to.
@@ -78,9 +78,9 @@ class WellBehavedSlackClient(SlackClient):
                 timestamp=timestamp,
                 name=emoji
             )
-            self.log("QOTD Bot reacts with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
+            log("QOTD Bot reacts with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
         except ValueError:
-            self.log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
+            log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
 
     # Send an action log to the chosen dev.
     # This is currently used to send exception details + stacktrace directly to the dev when an error is caught
@@ -156,7 +156,7 @@ class WellBehavedSlackClient(SlackClient):
             if event["type"] == "message" and not "subtype" in event:
                 processedEvent = self.parseDirectMention(event)
                 if processedEvent:
-                    self.log(self.getNameByID(event["user"]) + " says: " + event["text"] + "\n")
+                    log(self.getNameByID(event["user"]) + " says: " + event["text"] + "\n")
                     return processedEvent
         return None
 
