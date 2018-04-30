@@ -966,7 +966,7 @@ if __name__ == "__main__":
     if slackClient.rtm_connect(with_team_state=False):
 
         questionKeeper = QuestionKeeper()
-        scoreKeeper = ScoreKeeper()
+        scoreKeeper = ScoreKeeper(slackClient)
         commandKeeper = CommandKeeper()
         pollKeeper = PollKeeper()
 

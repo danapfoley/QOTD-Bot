@@ -36,7 +36,7 @@ if __name__ == "__main__":
     qb.slackClient = FakeSlackClient()
 
     qb.questionKeeper = qb.QuestionKeeper()
-    qb.scoreKeeper = qb.ScoreKeeper()
+    qb.scoreKeeper = qb.ScoreKeeper(qb.slackClient)
     qb.commandKeeper = qb.CommandKeeper()
     qb.pollKeeper = qb.PollKeeper()
 
