@@ -1,42 +1,46 @@
 import QOTDBot as qb
 
-def testSay(channel, response):
-    print(response)
+class FakeSlackClient:
+    def say(self, channel, response):
+        print(response)
 
-def testReact(channel, timestamp, emoji):
-    print(":" + emoji + ":")
+    def react(self, channel, timestamp, emoji):
+        print(":" + emoji + ":")
 
-def testLog(response):
+    def devLog(self, response):
+        print(response)
+
+    def getDirectChannel(self, userID):
+        return qb.DEPLOY_CHANNEL
+
+    def getNameByID(self, userID):
+        return "Dana Foley"
+
+
+def fakeLog(response):
     pass
 
-def testGetNameByID(userID):
-    return "Dana Foley"
-
-def testGetReferenceByID(userID):
+def fakeGetReferenceByID(userID):
     return "@dana.foley"
 
-def testGetIDFromReference(userIDReference):
+def fakeGetIDFromReference(userIDReference):
     return qb.DEVELOPER_ID
 
-def testGetDirectChannel(userID):
-    return qb.DEBUG_CHANNEL
-
-#overwrite slack-based functions
-qb.say = testSay
-qb.react = testReact
-qb.log = testLog
-qb.getNameByID = testGetNameByID
-qb.getReferenceByID = testGetReferenceByID
-qb.getIDFromReference = testGetIDFromReference
-qb.getDirectChannel = testGetDirectChannel
 
 if __name__ == "__main__":
+    #Overwrite production-based functions
+    qb.log = fakeLog
+    qb.getReferenceByID = fakeGetReferenceByID
+    qb.getIDFromReference = fakeGetIDFromReference
+
+    qb.slackClient = FakeSlackClient()
+
     qb.questionKeeper = qb.QuestionKeeper()
     qb.scoreKeeper = qb.ScoreKeeper()
     qb.commandKeeper = qb.CommandKeeper()
     qb.pollKeeper = qb.PollKeeper()
 
-    #remove command restrictions
+    #Remove command restrictions
     for c in qb.commandKeeper.commandsList:
         c.publicOnly = False
         c.privateOnly = False
@@ -46,7 +50,7 @@ if __name__ == "__main__":
     inputStr = ""
     while inputStr != "exit":
         inputStr = input("> ")
-        event = {"user" : qb.DEVELOPER_ID, "channel" : "D9C0FSD0R", "text" : inputStr}
+        event = {"user" : qb.DEVELOPER_ID, "channel" : qb.DEVELOPER_CHANNEL, "text" : inputStr}
 
         qb.commandKeeper.handle_event(event)
 
