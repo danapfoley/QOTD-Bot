@@ -160,20 +160,20 @@ class PollKeeper:
         output = ""
         for p in self.pollQuestionList:
             if p.userID == userID:
-                output += p.prettyPrint() + (" (published)" if q.published else "") + "\n"
+                output += p.prettyPrint() + (" (published)" if p.published else "") + "\n"
         return output
 
     def expirePoll(self, pID, userID):
         pollsExpired = []
         for p in self.pollQuestionList:
-            if q.timeToExpire() and q.userID == userID:
-                questionsExpired.append(q)
+            if p.timeToExpire() and p.userID == userID:
+                pollsExpired.append(p)
 
-        self.pollQuestionList = [q for q in self.pollQuestionList if q not in questionsExpired]
-        questionsExpired = [q.prettyPrintWithAnswer() for q in questionsExpired]
+        self.pollQuestionList = [p for p in self.pollQuestionList if p not in pollsExpired]
+        pollsExpired = [p.prettyPrintWithAnswer() for p in pollsExpired]
         self.writePollsToFile()
 
-        return questionsExpired
+        return pollsExpired
 
     def publishByID(self, pID):
         p = self.getPollByID(pID)

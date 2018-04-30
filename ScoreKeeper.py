@@ -10,12 +10,13 @@ def to_int(s):
     return int(s) if s else 0
 
 class ScoreKeeper:
-    def __init__(self):
+    def __init__(self, slackClient):
+        self.slackClient = slackClient
         self.data = []
-        self.todayRowNum = -1 #error value
-        self.totalsRowNum = 2 #manually set
-        self.userIDRowNum = 0 #manually set
-        self.userNameRowNum = 1 #manually set
+        self.todayRowNum = -1  #error value
+        self.totalsRowNum = 2  #manually chosen
+        self.userIDRowNum = 0  #manually chosen
+        self.userNameRowNum = 1  #manually chosen
 
         self.getDataFromFile()
         self.catchUpDateRows()
@@ -60,7 +61,7 @@ class ScoreKeeper:
         for column, score in enumerate(totalScores):
             if column == 0:
                 continue
-            if score != "" and str(score) !="0":
+            if score != "" and str(score) != "0":
                  scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
         
         scoresList.sort(key=lambda s: s.lower())
@@ -119,6 +120,10 @@ class ScoreKeeper:
 
         today = datetime.today().date()
         lastDate = datetime.strptime(self.data[-1][0], "%m/%d/%Y").date()
+
+        if today.month > lastDate.month:
+            self.announceMontlyWinners(lastDate.strftime("%B"))
+
         if lastDate < today:
             needsCatchUp = True
         else:
@@ -183,6 +188,25 @@ class ScoreKeeper:
         file = open(SCORES_FILE_NAME,"r")
         self.data = list(csv.reader(file))
         file.close()
+
+    def announceMontlyWinners(self, monthName):
+        scoresList = []
+        totalScores = self.data[self.totalsRowNum]
+        for column, score in enumerate(totalScores):
+            if column == 0:
+                continue
+            if score != "" and str(score) != "0":
+                scoresList.append((int(score), self.data[self.userNameRowNum][column]))
+
+        scoresList.sort(reverse=True)
+        scoresList = scoresList[:min(3, len(scoresList))]
+        for idx, tuple in enumerate(scoresList):
+            user = tuple[1]
+            score = tuple[0]
+
+            scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
+
+        self.slackClient.say("DEPLOY_CHANNEL", "Winners from " + monthName + "!\n" + "\n".join(scoresList) + "\n")
 
     def calculateMonthlyTotals(self):
         todayMonth = int(self.data[self.todayRowNum][0].split("/")[0])

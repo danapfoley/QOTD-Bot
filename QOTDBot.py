@@ -1,8 +1,3 @@
-#from flask import Flask, request, make_response, Response
-import os
-import time
-import re
-import json
 import random
 import traceback
 
@@ -13,181 +8,62 @@ from ScoreKeeper import *
 from PollKeeper import *
 from MessageReactionMonitor import *
 
-# instantiate Slack client
-SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
-SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
-
-slack_client = None
-
+#Make keeper objects global. They are initialized in main
+slackClient = None
 questionKeeper = None
 scoreKeeper = None
 commandKeeper = None
 pollKeeper = None
 messageReactionMonitor = None
 
-# QOTD Bot's user ID in Slack: value is assigned after the bot starts up
-bot_id = "UNKNOWN"
 
-###app = Flask(__name__)
 
-# constants
-RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
-MENTION_REGEX = "^<@(|[WU].+?)>(.*)" #For parsing mentions of @QOTD_Bot at the beginning of a message
 
-QOTD_CHANNEL = "C61L4NENS" #Where new info about questions and polls gets announced
-POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM" #Where points get announced
-
-DEVELOPER_ID = "U88LK3JN9" #Dana
-DEVELOPER_CHANNEL = "D9C0FSD0R" #Direct message channel with Dana
-
-DEPLOY_CHANNEL = QOTD_CHANNEL
-
-LOG_FILE = "log.txt"
-USER_LIST_FILE = "userList.json"
-
+#Add more responses here to be randomly picked
 POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
 
-
-#Commands stuff
-#----------------------------------
-
-#Use this to post a message to a channel
-def say(channel, response):
-    apiResponse = None
-    try:
-        apiResponse = slack_client.api_call(
-            "chat.postMessage",
-            channel=channel,
-            text=response,
-            icon_emoji=':robot_face:'
-        )
-        log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
-    except ValueError:
-        log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
-    return apiResponse
-
-def react(channel, timestamp, emoji):
-    try:
-        slack_client.api_call(
-            "reactions.add",
-            channel = channel,
-            timestamp = timestamp,
-            name = emoji
-        )
-        log("QOTD Bot reacts with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
-    except ValueError:
-        log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
-
-def log(response):
-    file = open(LOG_FILE, "a", newline='', encoding='utf8')
-    file.write(response)
-    file.close()
-    print(response)
-
-def devLog(response):
-    global DEVELOPER_CHANNEL
-    if DEVELOPER_CHANNEL == "" or DEVELOPER_CHANNEL is None:
-        DEVELOPER_CHANNEL = getDirectChannel(DEVELOPER_ID)
-
-    say(DEVELOPER_CHANNEL, response)
-
-def getNameByID(userID):
-
-    #All Slack user IDs start with "U", by convention
-    #So this is an easy check for invalid names
-    if not userID.startswith('U'):
-        return userID
-
-    #Our top priority is to get the name from the score sheet,
-    #since we can change that to a person's preference if they don't want to use their display name
-    nameFromScoreSheet = scoreKeeper.getUserNameInScoreSheet(userID)
-    if nameFromScoreSheet:
-        userName = nameFromScoreSheet
-        return userName
-
-    #Next highest priority is to use the bulk list of all users we can manually pull from Slack
-    with open(USER_LIST_FILE) as usersFile:
-        usersDict = json.load(usersFile)
-    if userID in usersDict:
-        userName = usersDict[userID]
-        return userName
-
-    #Last ditch effort is to do an api call, which we really want to avoid
-    attemptedNameJson = slack_client.api_call(
-        "users.info",
-        token = SLACK_BOT_TOKEN,
-        user = userID
-    )
-    if attemptedNameJson["ok"]:
-        if attemptedNameJson["user"]["profile"]["display_name"] != "":
-            userName = attemptedNameJson["user"]["profile"]["display_name"]
-        else:
-            userName = attemptedNameJson["user"]["profile"]["real_name"]
-
-    else:
-        userName = userID
-
-    return userName
-
-def getReferenceByID(userID):
-    return "<@" + userID + ">"
-
-def getIDFromReference(userIDReference):
-    for char in "<>@":
-        userIDReference = userIDReference.replace(char, "")
-    userID = userIDReference.strip()
-    return userID
-
-def getDirectChannel(userID):
-    dmChannel = slack_client.api_call(
-        "conversations.open",
-        users = userID
-    )
-
-    return dmChannel["channel"]["id"]
-
-def checkPublic(messageEvent):
-    if not is_event_private(messageEvent):
-        return "You can't use this command in a public channel. Message me directly instead"
-    else:
-        return ""
-
-def checkPrivate(messageEvent):
-    if is_event_private(messageEvent):
-        return "You can't use this command in a private channel. Use the public channel instead"
-    else:
-        return ""
-
 def needsMoreArgs(channel):
-    say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
+    slackClient.say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
 
 def scores(channel, userID, argsString, timestamp):
+    """
+    Print a list of today's scores, and running monthly scores
+    Ranked by number of points
+    """
     args = argsString.split(' ', 1)
-    response = ""
 
     #If a user to get scores for is specified
     if len(args) > 0 and args[0] != "":
         scoresForUser = getIDFromReference(args[0])
-
-        if getNameByID(scoresForUser) != scoresForUser: #if user name is valid
+        
+        if slackClient.getNameByID(scoresForUser) != scoresForUser: #if user name is valid
             response = scoreKeeper.getUserScores(scoresForUser)
         else:
             response = "I couldn't find that user. Use `scores help` for usage instructions"
-
-        say(channel, response)
+        
+        slackClient.say(channel, response)
         return
 
     #Otherwise, print scores for everyone
     response = scoreKeeper.getTodayScoresRanked()
     response += scoreKeeper.getTotalScoresRanked()
-    say(channel, response)
+    slackClient.say(channel, response)
 
 def scoresUnranked(channel, userID, argsString, timestamp):
+    """
+    Print a list of today's scores, and running monthly scores
+    Sorted alphabetically
+    """
     response = scoreKeeper.getTodayScores()
     response += scoreKeeper.getTotalScores()
-    say(channel, response)
+    slackClient.say(channel, response)
 
 def question(channel, userID, argsString, timestamp):
+    """
+    Add or modify a new question
+    """
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -207,7 +83,7 @@ def question(channel, userID, argsString, timestamp):
 
     if identifier == "remove":
         response = "You probably meant to use `question [identifier] remove`\n"
-        say(channel, response)
+        slackClient.say(channel, response)
         return
 
     if len(args) < 2:
@@ -227,15 +103,17 @@ def question(channel, userID, argsString, timestamp):
 
     if len(args) > 1:
         answers = [answer.strip() for answer in args[1:]]
+    else:
+        answers = []
 
     if question == "remove":
         if questionKeeper.removeQuestion(identifier, "DEV" if userID == DEVELOPER_ID else userID):
             response = "Okay, I removed that question"
-            say(channel, response)
+            slackClient.say(channel, response)
             return
         else:
             response = "I couldn't find a question of yours with that ID"
-            say(channel, response)
+            slackClient.say(channel, response) 
             return
 
     if question == "count":
@@ -243,7 +121,7 @@ def question(channel, userID, argsString, timestamp):
 
         if q is None:
             response = "I couldn't find a question of yours with that ID"
-            say(channel, response)
+            slackClient.say(channel, response)
             return
 
         numAnswers = q.countAnswers()
@@ -253,7 +131,7 @@ def question(channel, userID, argsString, timestamp):
 
         if numAnswers > 0:
             response += ":\n"
-            response += "\n".join([("-" + getNameByID(answeredByID)) for answeredByID in q.answeredBy])
+            response += "\n".join([("-" + slackClient.getNameByID(answeredByID)) for answeredByID in q.answeredBy])
 
         response += "\n\n"
         response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID \
@@ -261,9 +139,9 @@ def question(channel, userID, argsString, timestamp):
 
         if (numGuesses - numAnswers) > 0:
             response += ":\n"
-            response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
+            response += "\n".join([("-" + slackClient.getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
 
-        say(channel, response)
+        slackClient.say(channel, response)
         return
 
 
@@ -274,17 +152,100 @@ def question(channel, userID, argsString, timestamp):
         response = "Okay, I added your question with ID " + identifier + ".\n"\
                  + "Use `publish` to make your questions publicly available, "\
                  + "or `question " + identifier + " remove` to remove it"
-        say(channel, response)
+        slackClient.say(channel, response)
         if answers == []:
-            say(channel, "Warning: Your question doesn't seem to have a correct answer. Make sure this is intended before publishing.")
+            slackClient.say(channel, "Warning: Your question doesn't seem to have a correct answer. Make sure this is intended before publishing.")
     else:
         response = "A question with this ID already exists right now. Please use a different one"
-        say(channel, response)
+        slackClient.say(channel, response)
 
-def questions(channel, userID, argsString, timestamp):
+def addAnswer(channel, userID, argsString, timestamp):
+    """
+    Add a possible answer to an existing question
+    """
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+
     args = argsString.split(' ', 1)
 
-    if is_channel_private(channel):
+    identifier = (category + args[0]) if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+    args = args[1].split(" : ")  # no longer holding identifier
+    # args should now look like: "[answer1, answer2, ...]"
+    #   or just "[answer1]"
+
+    if len(args) < 1:
+        needsMoreArgs(channel)
+        return
+
+    args = [arg.strip() for arg in args]
+
+    for newAnswer in args:
+        if not questionKeeper.addAnswer(userID, identifier, newAnswer):
+            slackClient.say(channel, "I couldn't find a question of yours with that ID.\n")
+            return
+
+    if len(args) > 1:
+        slackClient.say(channel, "Okay, I added the answers \"" + "\", \"".join(args) + "\" to your question " + identifier)
+    else:
+        slackClient.say(channel, "Okay, I added the answer \"" + args[0] + "\" to your question " + identifier)
+
+def removeAnswer(channel, userID, argsString, timestamp):
+    """
+    Remove an answer option from an existing question. Must match the existing answer string exactly
+    """
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+
+    args = argsString.split(' ', 1)
+
+    identifier = (category + args[0]) if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+
+    existingAnswer = args[1].strip() #no longer holding identifier
+
+    q = questionKeeper.getUserQuestionByID(identifier, userID)
+    if not q:
+        slackClient.say(channel, "I couldn't find a question of yours with that ID.\n")
+        return
+    if not questionKeeper.removeAnswer(userID, identifier, existingAnswer):
+        slackClient.say(channel, "I couldn't find an answer that matches your input.\n The current answers are: " + ", ".join(q.correctAnswers) + "\n Try again with one of those\n")
+        return
+
+    slackClient.say(channel, "Okay, I removed the answer \"" + existingAnswer + "\" from your question " + identifier)
+
+def questions(channel, userID, argsString, timestamp):
+    """
+    List all currently active questions.
+    If used in a private channel, the list will include bullet points next to unanswered questions
+    """
+    if isChannelPrivate(channel):
         response = questionKeeper.listQuestionsPrivate(userID)
     else:
         response = questionKeeper.listQuestions()
@@ -293,10 +254,29 @@ def questions(channel, userID, argsString, timestamp):
         response = "There are no currently active questions"
     else:
         response = "Here are all the currently active questions:\n" + response
+    
+    slackClient.say(channel, response)
 
-    say(channel, response)
+
+def questionsRemaining(channel, userID, argsString, timestamp):
+    """
+    Similar to `questions`, but any question that has already been answered,
+        guessed the max number of times, or was submitted by you, is omitted.
+    """
+    response = questionKeeper.listIncompleteQuestionsPrivate(userID)
+
+    if response == "":
+        response = "There are no currently active questions that you can answer"
+    else:
+        response = "Here are all the currently active questions you have yet to get correct or use all your guesses on:\n" + response
+
+    slackClient.say(channel, response)
 
 def removeQuestion(channel, userID, argsString, timestamp):
+    """
+    Remove an question, published or not.
+    Questions that are removed and not expired do not get saved in question history
+    """
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -308,6 +288,10 @@ def removeQuestion(channel, userID, argsString, timestamp):
 
 
 def myQuestions(channel, userID, argsString, timestamp):
+    """
+    List all questions you've submitted, published or not.
+    Includes answers, and thus must be used in a private channel
+    """
     args = argsString.split(' ', 1)
 
     response = questionKeeper.listQuestionsByUser(userID)
@@ -316,11 +300,14 @@ def myQuestions(channel, userID, argsString, timestamp):
         response = "You have no questions right now. Use `question` to add some"
     else:
         response = "Here are all of your questions:\n" + response
-
-    say(channel, response)
+    
+    slackClient.say(channel, response)
 
 def publish(channel, userID, argsString, timestamp):
-
+    """
+    Publish all questions by a user.
+    If question ID given as argument, publish only that question
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -338,12 +325,16 @@ def publish(channel, userID, argsString, timestamp):
 
     newQuestions = questionKeeper.firstTimeDisplay()
     if newQuestions != "":
-        say(DEPLOY_CHANNEL, "New questions:\n" + newQuestions)
+        slackClient.say(DEPLOY_CHANNEL, "New questions:\n" + newQuestions)
 
-    say(channel, response)
-
+    slackClient.say(channel, response)
+    
 def answer(channel, userID, argsString, timestamp):
-
+    """
+    Guess the answer to a question.
+    Checks for correctness, number of guesses,
+        and whether or not to validate manually
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -360,10 +351,10 @@ def answer(channel, userID, argsString, timestamp):
 
         if not scoreKeeper.userExists(userID):
             scoreKeeper.addNewUser(userID)
-            scoreKeeper.addNameToUser(userID, getNameByID(userID))
+            scoreKeeper.addNameToUser(userID, slackClient.getNameByID(userID))
 
         scoreKeeper.addUserPoint(userID)
-        say(POINT_ANNOUNCEMENT_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
+        slackClient.say(POINT_ANNOUNCEMENT_CHANNEL, "Point for " + slackClient.getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
                             + ("\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(qID) else ""))
 
     elif checkResponse == "incorrect":
@@ -371,8 +362,16 @@ def answer(channel, userID, argsString, timestamp):
         guessesLeft = MAX_GUESSES - q.guesses[userID]
         response = "Incorrect. You have " + str(guessesLeft) + (" guesses left.\n" if guessesLeft != 1 else " guess left.\n")
         if guessesLeft == 0:
-            response += "The correct answer was \"" + q.correctAnswer + "\". If you think your guess(es) should have been correct, contact " \
+            response += ("The correct answers allowed were " if len(q.correctAnswers) > 1 else "The correct answer was ") \
+                     + ", ".join("\"" + a + "\"" for a in q.correctAnswers) + ". If you think your guess(es) should have been correct, contact " \
                      +  getReferenceByID(q.userID) + ", who submitted the question.\n"
+
+    elif checkResponse == "gave up":
+        q = questionKeeper.getQuestionByID(identifier)
+        response = ("The correct answers allowed were " if len(q.correctAnswers) > 1 else "The correct answer was ") \
+                    + ", ".join("\"" + a + "\"" for a in
+                                q.correctAnswers) + ". If you think your guess(es) should have been correct, contact " \
+                    + getReferenceByID(q.userID) + ", who submitted the question.\n"
 
     elif checkResponse == "already answered":
         response = "You already answered that question!"
@@ -380,69 +379,45 @@ def answer(channel, userID, argsString, timestamp):
     elif checkResponse == "max guesses":
         response = "You've already guessed the maximum number of times, " + str(MAX_GUESSES) + "."
 
-    elif checkResponse == "needsManual":
+    elif checkResponse == "needs manual":
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
-        response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
-        directUserChannel = getDirectChannel(userWhoSubmitted)
-        apiResponse = say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
-            + "\nIs this correct?\nReact to this message with :+1: to give them a point.")
-
-        if apiResponse is not None and "ts" in apiResponse:
-
-            def manualAnswerCallback(userWhoReacted, emoji, data):
-                q = questionKeeper.getQuestionByID(data["qID"])
-                if q is None or userWhoReacted != q.userID:
-                    return False
-                if "+1:" not in emoji:
-                    return False
-
-                qID = q.qID
-                pointForUser = data["pointForUser"]
-
-                q.answeredBy.append(pointForUser)
-                questionKeeper.writeQuestionsToFile()
-
-                if not scoreKeeper.userExists(pointForUser):
-                    scoreKeeper.addNewUser(pointForUser)
-                    scoreKeeper.addNameToUser(pointForUser, getNameByID(pointForUser))
-                scoreKeeper.addUserPoint(pointForUser)
-
-                say(POINT_ANNOUNCEMENT_CHANNEL,
-                    "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
-                    + (
-                        "\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(
-                            qID) else ""))
-
-                say(getDirectChannel(pointForUser), "You got the question right!")
-
-                return True
-
-            messageReactionMonitor.addMonitoredMessage(channel, userID, apiResponse["ts"], {"qID" : identifier, "pointForUser" : userID}, manualAnswerCallback)
-
+        response = "This question needs to be validated manually. I'll ask " + slackClient.getNameByID(userWhoSubmitted) + " to check your answer."
+        directUserChannel = slackClient.getDirectChannel(userWhoSubmitted)
+        slackClient.say(directUserChannel, slackClient.getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
+            + "\nIs this correct?\n(I don't know how to validate answers this way yet)")
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
 
-    say(channel, response)
+    slackClient.say(channel, response)
 
 def oldQuestions(channel, userID, argsString, timestamp):
+    """
+    List all questions that were expired less than 24 hours ago.
+    Does not include questions that were removed
+    """
     response = questionKeeper.getOldQuestionsString()
 
     if response != "":
         response = "Here are all of the questions I found that were expired in the last 24 hours:\n\n" + response
     else:
         response = "I couldn't find any questions that were expired in the last 24 hours"
-    say(channel, response)
-
+    slackClient.say(channel, response)
+    
 
 def hello(channel, userID, argsString, timestamp):
-
-    response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
+    """
+    Say hi and some basic ID info
+    """
+    response = "Hello " + slackClient.getNameByID(userID) + ", I'm QOTD Bot!"
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
-
-    say(channel, response)
+    
+    slackClient.say(channel, response)
 
 
 def addPoints(channel, userID, argsString, timestamp):
+    """
+    Add a number of points for a mentioned user
+    """
     args = argsString.split(' ')
 
     if len(args) < 1 or args[0] == "":
@@ -452,8 +427,8 @@ def addPoints(channel, userID, argsString, timestamp):
     pointsForUser = getIDFromReference(args[0])
     numPoints = args[1] if len(args) >= 2 and args[1] != "" else "1"
 
-    if getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
-        say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
+    if slackClient.getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
+        slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
     #Get a string of just digits
@@ -463,21 +438,25 @@ def addPoints(channel, userID, argsString, timestamp):
         numPointsDigitsOnly = "-" + numPointsDigitsOnly
 
     if numPointsDigitsOnly == "":
-        say(channel, "I couldn't interpret " + numPoints + " as a number. Try again\n")
+        slackClient.say(channel, "I couldn't interpret " + numPoints + " as a number. Try again\n")
         return
 
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
-        scoreKeeper.addNameToUser(userID, getNameByID(userID))
+        scoreKeeper.addNameToUser(userID, slackClient.getNameByID(userID))
 
     numPointsDigitsOnly = int(numPointsDigitsOnly)
     scoreKeeper.addUserPoints(pointsForUser, numPointsDigitsOnly)
 
-    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(pointsForUser)
-    say(DEPLOY_CHANNEL, response)
+    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + slackClient.getNameByID(pointsForUser)
+    slackClient.say(DEPLOY_CHANNEL, response)
 
 def expireOldQuestions(channel, userID, argsString, timestamp):
-
+    """
+    Expire all questions of yours older than 18 hours.
+    Posts the expired questions, their answers,
+        and a list of users who answered correctly, to the deploy channel.
+    """
     expiredQuestions = questionKeeper.expireQuestions(userID)
     expiredQuestionsStrings = []
     for q in expiredQuestions:
@@ -485,21 +464,24 @@ def expireOldQuestions(channel, userID, argsString, timestamp):
         if len(q.getAnsweredUsers()) > 0:
             expiredQuestionsStrings.append("    Answered by:")
         for answeredUserID in q.getAnsweredUsers():
-            expiredQuestionsStrings.append("        -" + getNameByID(answeredUserID))
+            expiredQuestionsStrings.append("        -" + slackClient.getNameByID(answeredUserID))
         expiredQuestionsStrings.append("\n")
 
     if len(expiredQuestions) > 0:
         response = "The following questions have expired:\n"
         response += '\n'.join(expiredQuestionsStrings)
         if channel != DEPLOY_CHANNEL:
-            say(DEPLOY_CHANNEL, response)
+            slackClient.say(DEPLOY_CHANNEL, response)
     else:
         response = "No questions of yours older than 18 hours were found"
 
-    say(channel, response)
+    slackClient.say(channel, response)
 
 
 def poll(channel, userID, argsString, timestamp):
+    """
+    Create or modify a poll, with poll text and options separated by " : "
+    """
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -511,7 +493,7 @@ def poll(channel, userID, argsString, timestamp):
 
     if identifier == "remove":
         response = "You probably meant to use `poll [identifier] remove`\n"
-        say(channel, response)
+        slackClient.say(channel, response)
         return
 
     if len(args) < 2:
@@ -529,18 +511,18 @@ def poll(channel, userID, argsString, timestamp):
     if question == "remove":
         if pollKeeper.removePoll(identifier, "DEV" if userID == DEVELOPER_ID else userID):
             response = "Okay, I removed that poll"
-            say(channel, response)
+            slackClient.say(channel, response)
             return
         else:
             response = "I couldn't find a poll of yours with that ID"
-            say(channel, response)
+            slackClient.say(channel, response) 
             return
 
     if question in ["votes", "status", "results", "check"]:
         response = pollKeeper.displayResults(identifier)
         if response is None:
             response = "I couldn't find a poll with that ID"
-        say(channel, response)
+        slackClient.say(channel, response) 
         return
 
 
@@ -556,9 +538,12 @@ def poll(channel, userID, argsString, timestamp):
     else:
         response = "A poll with this ID already exists right now. Please use a different one"
 
-    say(channel, response)
+    slackClient.say(channel, response)
 
 def polls(channel, userID, argsString, timestamp):
+    """
+    List all currently active polls
+    """
     args = argsString.split(' ', 1)
 
     response = pollKeeper.listPolls()
@@ -567,10 +552,14 @@ def polls(channel, userID, argsString, timestamp):
         response = "There are no currently active polls"
     else:
         response = "Here are all the currently active polls:\n" + response
-
-    say(channel, response)
+    
+    slackClient.say(channel, response)
 
 def publishPoll(channel, userID, argsString, timestamp):
+    """
+    Publish all of your polls
+    If ID given, publish only the poll with that ID
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -588,11 +577,15 @@ def publishPoll(channel, userID, argsString, timestamp):
 
     newPolls = pollKeeper.firstTimeDisplay()
     if newPolls != "":
-        say(DEPLOY_CHANNEL, "New polls:\n" + newPolls)
+        slackClient.say(DEPLOY_CHANNEL, "New polls:\n" + newPolls)
 
-    say(channel, response)
+    slackClient.say(channel, response)
 
 def respondToPoll(channel, userID, argsString, timestamp):
+    """
+    Vote on a poll.
+    Identifier must match poll ID, and the vote must match the corresponding number of the option
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -605,63 +598,76 @@ def respondToPoll(channel, userID, argsString, timestamp):
 
     if checkVote == "not found":
         response = "I couldn't find a poll with that ID.\n"
-        say(channel, response)
+        slackClient.say(channel, response)
         return
 
     if checkVote == "bad vote":
         response = "I couldn't find an option that matches \"" + identifier + "\".\n"
-        say(channel, response)
+        slackClient.say(channel, response)
         return
-
-    react(channel, timestamp, "thumbsup")
+    
+    slackClient.react(channel, timestamp, "thumbsup")
 
 def tell(channel, userID, argsString, timestamp):
+    """
+    Make the bot talk to another user, in the deploy channel.
+    The user who says the command is not hidden
+    """
     args = argsString.split(' ', 1)
 
     response = ""
 
     if len(args) < 2:
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
-        say(channel, "this command needs more arguments!")
+        slackClient.say(channel, "this command needs more arguments!")
         return
 
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
-    if getNameByID(userToTell) == userToTell: #if user name is invalid
-        say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
+    if slackClient.getNameByID(userToTell) == userToTell: #if user name is invalid
+        slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
-    say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
+    slackClient.say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
 
 def devTell(channel, userID, argsString, timestamp):
+    """
+    Make the bot speak on behalf of the dev, in a direct chat with a user
+    """
     args = argsString.split(' ', 1)
 
     response = ""
 
     if len(args) < 2:
         #Not using the needsMoreArgs function since this is a hidden command and has no help text
-        say(channel, "this command needs more arguments!")
+        slackClient.say(channel, "this command needs more arguments!")
         return
 
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
-    if getNameByID(userToTell) == userToTell: #if user name is invalid
-        say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
+    if slackClient.getNameByID(userToTell) == userToTell: #if user name is invalid
+        slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
-    userChannel = getDirectChannel(userToTell)
+    userChannel = slackClient.getDirectChannel(userToTell)
 
-    say(userChannel, whatToSay)
+    slackClient.say(userChannel, whatToSay)
 
 def announce(channel, userID, argsString, timestamp):
-    say(DEPLOY_CHANNEL, argsString)
+    """
+    Make the bot speak on behalf of the dev, to the deploy channel
+    """
+    slackClient.say(DEPLOY_CHANNEL, argsString)
 
 def refreshUserList(channel, userID, argsString, timestamp):
+    """
+    Update the user list that caches user name info
+    """
     usersJson = {}
 
-    usersList = slack_client.api_call("users.list")["members"]
+    usersList = slackClient.api_call("users.list")["members"]
     for member in usersList:
         name = member["profile"]["display_name"]
         if name == "":
@@ -708,18 +714,41 @@ class CommandKeeper:
                 aliases = ["q","question"],
                 func = question,
                 category = "Questions and Answers",
-                helpText = "`question [identifier] [question] : <answer>` - creates a question with a reference tag `identifier`.\n"\
+                helpText = "`question [identifier] [question] : <answer1> : <answer2> : ...` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
                          + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
                 privateOnly = True
             ),
 
             Command(
-                aliases = ["qs","questions"],
-                func = questions,
+                aliases = ["add-answer","add-answers"],
+                func = addAnswer,
+                category = "Questions and Answers",
+                helpText = "`add-answer  [identifier] [new answer]` - adds a new possible answer for the question with the corresponding identifier.\n"\
+                         + "`add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier",
+                privateOnly = True
+            ),
 
+            Command(
+                aliases=["remove-answer"],
+                func = removeAnswer,
+                category="Questions and Answers",
+                helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work",
+                privateOnly=True
+            ),
+
+            Command(
+                aliases = ["qs", "questions"],
+                func = questions,
                 category = "Questions and Answers",
                 helpText = "`questions` - prints a list of today's published questions"
+            ),
+
+            Command(
+                aliases = ["questions-remaining"],
+                func = questionsRemaining,
+                category = "Questions and Answers",
+                helpText = "`questions-remaining` - Prints a list of questions that you have yet to answer or use all your guesses on"
             ),
 
             Command(
@@ -745,7 +774,7 @@ class CommandKeeper:
             ),
 
             Command(
-                aliases = ["a","answer"],
+                aliases = ["a", "answer"],
                 func = answer,
                 category = "Questions and Answers",
                 helpText = "`answer [identifier] [your answer]` - Must be used in a private channel. "\
@@ -754,13 +783,13 @@ class CommandKeeper:
             ),
 
             Command(
-                aliases = ["hi","hello","hola"],
+                aliases = ["hi", "hello", "hola"],
                 func = hello,
                 helpText = "`hello` - says hi back and some basic information"
             ),
 
             Command(
-                aliases = ["add-point","add-points"],
+                aliases = ["add-point", "add-points"],
                 func = addPoints,
                 category = "Scoring and Points",
                 helpText = "`add-point(s) [@ user] <# points>` "\
@@ -836,6 +865,7 @@ class CommandKeeper:
             )
         ]
 
+        #Categorize help text
         for command in self.commandsList:
             if command.helpText == "":
                 continue
@@ -857,9 +887,9 @@ class CommandKeeper:
                 for line in helpText.split("\n"):
                     response += "    " + line + "\n\n"
             response += "\n\n"
-        response = response[:-2]
+        response = response[:-2]  #Slice off the last two newlines
 
-        say(channel, "Here's a list of commands I know:\n\n" + response)
+        slackClient.say(channel, "Here's a list of commands I know:\n\n" + response)
 
     def getCommandByAlias(self, alias):
         for cmd in self.commandsList:
@@ -869,14 +899,14 @@ class CommandKeeper:
 
     def handle_event(self, event):
         """
-            Executes bot command if the command is known
+        Execute bot command if the command is known
         """
         userID = event["user"]
         channel = event["channel"]
         if "ts" in event:
             timestamp = event["ts"]
         else:
-            timestamp = time.time()
+            timestamp = 0
 
         #Clean up multiple whitespace characters for better uniformity for all commands
         #e.g. "This   is:       some text" turns into "This is: some text"
@@ -891,31 +921,31 @@ class CommandKeeper:
 
         cmd = self.getCommandByAlias(commandAlias)
         if not cmd:
-            #say(channel, "Invalid command")
+            #slackClient.say(channel, "Invalid command")
             return
 
         if len(splitArguments) > 1:
             #This is the result of @qotd_bot [command] help
             if splitArguments[1] == "help":
-                say(channel, cmd.helpText)
+                slackClient.say(channel, cmd.helpText)
                 return
-
-            args = splitArguments[1] #slice off the command ID, leaving just arguments
+            
+            args = splitArguments[1]  #slice off the command ID, leaving just arguments
         else:
             args = ""
 
 
         if cmd.devOnly and userID != DEVELOPER_ID:
             response = "I'm sorry, " + getReferenceByID(userID) + ", I'm afraid I can't let you do that."
-            say(channel, response)
+            slackClient.say(channel, response)
             return
 
-        if cmd.publicOnly and is_channel_private(channel):
-            say(channel, "You can't use this command in a private channel. Use the public channel instead")
+        if cmd.publicOnly and isChannelPrivate(channel):
+            slackClient.say(channel, "You can't use this command in a private channel. Use the public channel instead")
             return
 
-        if cmd.privateOnly and not is_channel_private(channel):
-            say(channel, "You can't use this command in a public channel. Message me directly instead")
+        if cmd.privateOnly and not isChannelPrivate(channel):
+            slackClient.say(channel, "You can't use this command in a public channel. Message me directly instead")
             return
 
 
@@ -923,98 +953,50 @@ class CommandKeeper:
         try:
             cmd.func(channel, userID, args, timestamp)
         except Exception as e:
-            devLog(getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n\n" + str(e) + "\n\n" + traceback.format_exc())
+            slackClient.devLog(slackClient.getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n\n" + str(e) + "\n\n" + traceback.format_exc())
 
 
 #----------------------------------
-
-def is_channel_private(channel):
-    return channel.startswith('D')
-
-def is_event_private(messageEvent):
-    """Checks if private slack channel"""
-    return messageEvent['channel'].startswith('D')
-
-
-def parse_bot_commands(slack_events):
-    """
-        Parses a list of events coming from the Slack RTM API to find bot commands.
-        If a bot command is found, this function returns a tuple of command and channel.
-        If its not found, then this function returns None, None.
-    """
-    for event in slack_events:
-        if event["type"] == "goodbye":
-            print("Got 'goodbye' message. Reconnecting now")
-            slack_client.rtm_connect(with_team_state=False)
-        if event["type"] == "error":
-            print("Network error. Retrying in 5 seconds...\n")
-            time.sleep(5)
-            return None
-        if event["type"] == "reaction_added":
-            messageReactionMonitor.reactionAdded(event["item"]["channel"], event["item"]["ts"], event["user"], event["reaction"])
-        if event["type"] == "message" and not "subtype" in event:
-            processedEvent = parse_direct_mention(event)
-            if processedEvent:
-                log(getNameByID(event["user"]) + " says: " + event["text"] + "\n")
-                return processedEvent
-    return None
-
-def parse_direct_mention(event):
-    message_text = event["text"]
-    """
-        Finds a direct mention (a mention that is at the beginning) in message text
-        and returns the user ID which was mentioned. If there is no direct mention, returns None
-    """
-    matches = re.search(MENTION_REGEX, message_text)
-    # the first group contains the username, the second group contains the remaining message
-    #If direct mention...
-    if matches and matches.group(1) == bot_id:
-        event["text"] = matches.group(2).strip()
-        #return (matches.group(1), matches.group(2).strip())
-        return event
-    #If private message (no mention necessary)
-    elif is_event_private(event):
-        #return (bot_id, message_text)
-        return event
-    else:
-        return None
 
 
 
 
 
 if __name__ == "__main__":
-    slack_client = WellBehavedSlackClient(SLACK_BOT_TOKEN)
 
-    if slack_client.rtm_connect(with_team_state=False):
+    print("Creating slack client")
+    slackClient = WellBehavedSlackClient(SLACK_BOT_TOKEN)
+
+    if slackClient.rtm_connect(with_team_state=False):
 
         questionKeeper = QuestionKeeper()
-        scoreKeeper = ScoreKeeper()
+        scoreKeeper = ScoreKeeper(slackClient)
         commandKeeper = CommandKeeper()
         pollKeeper = PollKeeper()
         messageReactionMonitor = MessageReactionMonitor()
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`
-        bot_id = slack_client.api_call("auth.test")["user_id"]
+        bot_id = slackClient.api_call("auth.test")["user_id"]
         while True:
-            #command, channel = parse_bot_commands(slack_client.rtm_read())
+            # The client can reject our rtm_read call for many reasons
+            # So when that happens, we wait 3 seconds and try to reconnect
+            # If there is no internet connection, this will continue to loop until there is
             try:
-                event = parse_bot_commands(slack_client.rtm_read())
+                event = slackClient.parseBotCommands(slackClient.rtm_read())
             except BaseException as e:
                 log("Connection Error. Retrying in 3 seconds...")
                 log("Exception details: " + str(e))
                 time.sleep(3)
                 try:
-                    slack_client.rtm_connect(with_team_state=False)
+                    slackClient.rtm_connect(with_team_state=False)
                 except BaseException as e:
                     log("Couldn't reconnect :(")
                     log("Exception details: " + str(e))
                     continue
                 continue
-            #if command:
             if event:
-               commandKeeper.handle_event(event)
+                commandKeeper.handle_event(event)
             time.sleep(RTM_READ_DELAY)
     else:
         print("Connection failed. Exception traceback printed above.")
