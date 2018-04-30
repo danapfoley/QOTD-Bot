@@ -184,7 +184,7 @@ class WellBehavedSlackClient(SlackClient):
 # Just for keeping/printing a history of what was said.
 # We might keep file logging off if the frequent read/write causes lag or disk wear,
 #   but no reason not to print
-def log(self, response):
+def log(response):
     if FILE_LOGGING:
         file = open(LOG_FILE, "a", newline='', encoding='utf8')
         file.write(response)
