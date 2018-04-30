@@ -1,8 +1,5 @@
-#from flask import Flask, request, make_response, Response
 import os
-import time
 import re
-import json
 import random
 import traceback
 
@@ -15,9 +12,9 @@ from PollKeeper import *
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
-
 slack_client = None
 
+#Make keeper objects global. They are initialized in main
 questionKeeper = None
 scoreKeeper = None
 commandKeeper = None
@@ -25,8 +22,6 @@ pollKeeper = None
 
 # starterbot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
-
-###app = Flask(__name__)
 
 # constants
 RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
@@ -41,13 +36,15 @@ DEVELOPER_CHANNEL = "D9C0FSD0R" #Direct message channel with Dana
 DEPLOY_CHANNEL = QOTD_CHANNEL
 
 LOG_FILE = "log.txt"
+FILE_LOGGING = False
 USER_LIST_FILE = "userList.json"
 
+#Add more responses here to be randomly picked
 POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
 
 
-#Commands stuff
-#----------------------------------
+#Bot API and general-use functions
+#---------------------------------------------------------------------------------------------------
 
 #Use this to post a message to a channel
 def say(channel, response):
@@ -62,6 +59,9 @@ def say(channel, response):
     except ValueError:
         log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
 
+#Use this to add an emoji reaction to a message.
+#The timestamp can easily come from the command message, if that's what you're reacting to.
+#Reacting to older messages requires more effort to hang on to the timestamp, because we can't retrieve it later.
 def react(channel, timestamp, emoji):
     try:
         slack_client.api_call(
@@ -74,12 +74,19 @@ def react(channel, timestamp, emoji):
     except ValueError:
         log("QOTD Bot failed to react with: " + (emoji if emoji else "[NO EMOJI]") + "\n")
 
+#Just for keeping/printing a history of what was said.
+#We might keep file logging off if the frequent read/write causes lag or disk wear,
+#   but no reason not to print
 def log(response):
-    # file = open(LOG_FILE, "a", newline='', encoding='utf8')
-    # file.write(response)
-    # file.close()
+    if FILE_LOGGING:
+        file = open(LOG_FILE, "a", newline='', encoding='utf8')
+        file.write(response)
+        file.close()
     print(response)
 
+#Send an action log to the chosen dev.
+#This is currently used to send exception details + stacktrace directly to the dev when an error is caught
+#   for ~efficient development~
 def devLog(response):
     global DEVELOPER_CHANNEL
     if DEVELOPER_CHANNEL == "" or DEVELOPER_CHANNEL is None:
@@ -88,7 +95,6 @@ def devLog(response):
     say(DEVELOPER_CHANNEL, response)
 
 def getNameByID(userID):
-    usersDict = {}
 
     #All Slack user IDs start with "U", by convention
     #So this is an easy check for invalid names
@@ -125,9 +131,13 @@ def getNameByID(userID):
 
     return userName
 
+#References to users appear to begin with "@" in Slack, followed by a person's name
+#But behind the scenes, they're user IDs wrapped up in "<>" characters, e.g. "<@U1234ABCD>"
+#So if we want to reference a user when posting a message, we take their ID, and wrap it.
 def getReferenceByID(userID):
     return "<@" + userID + ">"
 
+#Similarly, if we want to get an ID from a reference, we just strip the wrapping
 def getIDFromReference(userIDReference):
     for char in "<>@":
         userIDReference = userIDReference.replace(char, "")
@@ -135,13 +145,15 @@ def getIDFromReference(userIDReference):
     return userID
 
 
-
+#If we want to send a message to a user,
+#   and the command in question wasn't sent in that user's private channel
+#   we can use an API call to open a conversation / retrieve a channel ID.
+#In the future we should cache this info to speed up response time
 def getDirectChannel(userID):
     dmChannel = slack_client.api_call(
         "conversations.open",
         users = userID
     )
-
     return dmChannel["channel"]["id"]
 
 def checkPublic(messageEvent):
@@ -159,9 +171,18 @@ def checkPrivate(messageEvent):
 def needsMoreArgs(channel):
     say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
 
+
+
+
+# Commands stuff
+# ---------------------------------------------------------------------------------------------------
+
 def scores(channel, userID, argsString, timestamp):
+    """
+    Print a list of today's scores, and running monthly scores
+    Ranked by number of points
+    """
     args = argsString.split(' ', 1)
-    response = ""
 
     #If a user to get scores for is specified
     if len(args) > 0 and args[0] != "":
@@ -181,11 +202,18 @@ def scores(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def scoresUnranked(channel, userID, argsString, timestamp):
+    """
+    Print a list of today's scores, and running monthly scores
+    Sorted alphabetically
+    """
     response = scoreKeeper.getTodayScores()
     response += scoreKeeper.getTotalScores()
     say(channel, response)
 
 def question(channel, userID, argsString, timestamp):
+    """
+    Add or modify a new question
+    """
     argsString = argsString.replace("“", "\"").replace("”", "\"")
 
     if argsString == "":
@@ -282,6 +310,9 @@ def question(channel, userID, argsString, timestamp):
         say(channel, response)
 
 def addAnswer(channel, userID, argsString, timestamp):
+    """
+    Add a possible answer to an existing question
+    """
     argsString = argsString.replace("“", "\"").replace("”", "\"")
 
     if argsString == "":
@@ -323,6 +354,9 @@ def addAnswer(channel, userID, argsString, timestamp):
         say(channel, "Okay, I added the answer \"" + args[0] + "\" to your question " + identifier)
 
 def removeAnswer(channel, userID, argsString, timestamp):
+    """
+    Remove an answer option from an existing question. Must match the existing answer string exactly
+    """
     argsString = argsString.replace("“", "\"").replace("”", "\"")
 
     if argsString == "":
@@ -357,6 +391,10 @@ def removeAnswer(channel, userID, argsString, timestamp):
     say(channel, "Okay, I removed the answer \"" + existingAnswer + "\" from your question " + identifier)
 
 def questions(channel, userID, argsString, timestamp):
+    """
+    List all currently active questions.
+    If used in a private channel, the list will include bullet points next to unanswered questions
+    """
     if is_channel_private(channel):
         response = questionKeeper.listQuestionsPrivate(userID)
     else:
@@ -371,6 +409,10 @@ def questions(channel, userID, argsString, timestamp):
 
 
 def questionsRemaining(channel, userID, argsString, timestamp):
+    """
+    Similar to `questions`, but any question that has already been answered,
+        guessed the max number of times, or was submitted by you, is omitted.
+    """
     response = questionKeeper.listIncompleteQuestionsPrivate(userID)
 
     if response == "":
@@ -381,6 +423,10 @@ def questionsRemaining(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def removeQuestion(channel, userID, argsString, timestamp):
+    """
+    Remove an question, published or not.
+    Questions that are removed and not expired do not get saved in question history
+    """
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -392,6 +438,10 @@ def removeQuestion(channel, userID, argsString, timestamp):
 
 
 def myQuestions(channel, userID, argsString, timestamp):
+    """
+    List all questions you've submitted, published or not.
+    Includes answers, and thus must be used in a private channel
+    """
     args = argsString.split(' ', 1)
     
     response = questionKeeper.listQuestionsByUser(userID)
@@ -404,7 +454,10 @@ def myQuestions(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def publish(channel, userID, argsString, timestamp):
-
+    """
+    Publish all questions by a user.
+    If question ID given as argument, publish only that question
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -427,7 +480,11 @@ def publish(channel, userID, argsString, timestamp):
     say(channel, response)
     
 def answer(channel, userID, argsString, timestamp):
-
+    """
+    Guess the answer to a question.
+    Checks for correctness, number of guesses,
+        and whether or not to validate manually
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -472,7 +529,7 @@ def answer(channel, userID, argsString, timestamp):
     elif checkResponse == "max guesses":
         response = "You've already guessed the maximum number of times, " + str(MAX_GUESSES) + "."
 
-    elif checkResponse == "needsManual":
+    elif checkResponse == "needs manual":
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
         response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
         directUserChannel = getDirectChannel(userWhoSubmitted)
@@ -484,6 +541,10 @@ def answer(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def oldQuestions(channel, userID, argsString, timestamp):
+    """
+    List all questions that were expired less than 24 hours ago.
+    Does not include questions that were removed
+    """
     response = questionKeeper.getOldQuestionsString()
 
     if response != "":
@@ -494,7 +555,9 @@ def oldQuestions(channel, userID, argsString, timestamp):
     
 
 def hello(channel, userID, argsString, timestamp):
-
+    """
+    Say hi and some basic ID info
+    """
     response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
     
@@ -502,6 +565,9 @@ def hello(channel, userID, argsString, timestamp):
 
 
 def addPoints(channel, userID, argsString, timestamp):
+    """
+    Add a number of points for a mentioned user
+    """
     args = argsString.split(' ')
 
     if len(args) < 1 or args[0] == "":
@@ -536,7 +602,11 @@ def addPoints(channel, userID, argsString, timestamp):
     say(DEPLOY_CHANNEL, response)
 
 def expireOldQuestions(channel, userID, argsString, timestamp):
-
+    """
+    Expire all questions of yours older than 18 hours.
+    Posts the expired questions, their answers,
+        and a list of users who answered correctly, to the deploy channel.
+    """
     expiredQuestions = questionKeeper.expireQuestions(userID)
     expiredQuestionsStrings = []
     for q in expiredQuestions:
@@ -559,6 +629,9 @@ def expireOldQuestions(channel, userID, argsString, timestamp):
 
 
 def poll(channel, userID, argsString, timestamp):
+    """
+    Create or modify a poll, with poll text and options separated by " : "
+    """
     if argsString == "":
         needsMoreArgs(channel)
         return
@@ -618,6 +691,9 @@ def poll(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def polls(channel, userID, argsString, timestamp):
+    """
+    List all currently active polls
+    """
     args = argsString.split(' ', 1)
     
     response = pollKeeper.listPolls()
@@ -630,6 +706,10 @@ def polls(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def publishPoll(channel, userID, argsString, timestamp):
+    """
+    Publish all of your polls
+    If ID given, publish only the poll with that ID
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -652,6 +732,10 @@ def publishPoll(channel, userID, argsString, timestamp):
     say(channel, response)
 
 def respondToPoll(channel, userID, argsString, timestamp):
+    """
+    Vote on a poll.
+    Identifier must match poll ID, and the vote must match the corresponding number of the option
+    """
     args = argsString.split(' ', 1)
     identifier = args[0] if len(args) > 0 else ""
 
@@ -675,6 +759,10 @@ def respondToPoll(channel, userID, argsString, timestamp):
     react(channel, timestamp, "thumbsup")
 
 def tell(channel, userID, argsString, timestamp):
+    """
+    Make the bot talk to another user, in the deploy channel.
+    The user who says the command is not hidden
+    """
     args = argsString.split(' ', 1)
 
     response = ""
@@ -694,6 +782,9 @@ def tell(channel, userID, argsString, timestamp):
     say(DEPLOY_CHANNEL, "Hey " + getReferenceByID(userID) + ", " + getReferenceByID(userID) + " says " + whatToSay)
 
 def devTell(channel, userID, argsString, timestamp):
+    """
+    Make the bot speak on behalf of the dev, in a direct chat with a user
+    """
     args = argsString.split(' ', 1)
 
     response = ""
@@ -715,9 +806,15 @@ def devTell(channel, userID, argsString, timestamp):
     say(userChannel, whatToSay)
 
 def announce(channel, userID, argsString, timestamp):
+    """
+    Make the bot speak on behalf of the dev, to the deploy channel
+    """
     say(DEPLOY_CHANNEL, argsString)
 
 def refreshUserList(channel, userID, argsString, timestamp):
+    """
+    Update the user list that caches user name info
+    """
     usersJson = {}
 
     usersList = slack_client.api_call("users.list")["members"]
@@ -791,7 +888,7 @@ class CommandKeeper:
             ),
 
             Command(
-                aliases = ["qs","questions"],
+                aliases = ["qs", "questions"],
                 func = questions,
                 category = "Questions and Answers",
                 helpText = "`questions` - prints a list of today's published questions"
@@ -827,7 +924,7 @@ class CommandKeeper:
             ),
 
             Command(
-                aliases = ["a","answer"],
+                aliases = ["a", "answer"],
                 func = answer,
                 category = "Questions and Answers",
                 helpText = "`answer [identifier] [your answer]` - Must be used in a private channel. "\
@@ -836,13 +933,13 @@ class CommandKeeper:
             ),
 
             Command(
-                aliases = ["hi","hello","hola"],
+                aliases = ["hi", "hello", "hola"],
                 func = hello,
                 helpText = "`hello` - says hi back and some basic information"
             ),
 
             Command(
-                aliases = ["add-point","add-points"],
+                aliases = ["add-point", "add-points"],
                 func = addPoints,
                 category = "Scoring and Points",
                 helpText = "`add-point(s) [@ user] <# points>` "\
@@ -918,6 +1015,7 @@ class CommandKeeper:
             )
         ]
 
+        #Categorize help text
         for command in self.commandsList:
             if command.helpText == "":
                 continue
@@ -939,7 +1037,7 @@ class CommandKeeper:
                 for line in helpText.split("\n"):
                     response += "    " + line + "\n\n"
             response += "\n\n"
-        response = response[:-2]
+        response = response[:-2]  #Slice off the last two newlines
 
         say(channel, "Here's a list of commands I know:\n\n" + response)
 
@@ -951,14 +1049,14 @@ class CommandKeeper:
 
     def handle_event(self, event):
         """
-            Executes bot command if the command is known
+        Execute bot command if the command is known
         """
         userID = event["user"]
         channel = event["channel"]
         if "ts" in event:
             timestamp = event["ts"]
         else:
-            timestamp = time.time()
+            timestamp = 0
 
         #Clean up multiple whitespace characters for better uniformity for all commands
         #e.g. "This   is:       some text" turns into "This is: some text"
@@ -982,13 +1080,13 @@ class CommandKeeper:
                 say(channel, cmd.helpText)
                 return
             
-            args = splitArguments[1] #slice off the command ID, leaving just arguments
+            args = splitArguments[1]  #slice off the command ID, leaving just arguments
         else:
             args = ""
 
 
         if cmd.devOnly and userID != DEVELOPER_ID:
-            response = "I'm sorry, " + getReferenceByID(originUserID) + ", I'm afraid I can't let you do that."
+            response = "I'm sorry, " + getReferenceByID(userID) + ", I'm afraid I can't let you do that."
             say(channel, response)
             return
 
@@ -1011,6 +1109,7 @@ class CommandKeeper:
 #----------------------------------
 
 def is_channel_private(channel):
+    """Checks if public slack channel"""
     return channel.startswith('D')
 
 def is_event_private(messageEvent):
@@ -1020,9 +1119,9 @@ def is_event_private(messageEvent):
 
 def parse_bot_commands(slack_events):
     """
-        Parses a list of events coming from the Slack RTM API to find bot commands.
-        If a bot command is found, this function returns a tuple of command and channel.
-        If its not found, then this function returns None, None.
+    Parses a list of events coming from the Slack RTM API to find bot commands.
+    If a bot command is found, this function returns a tuple of command and channel.
+    If its not found, then this function returns None, None.
     """
     for event in slack_events:
         if event["type"] == "goodbye":
@@ -1042,8 +1141,8 @@ def parse_bot_commands(slack_events):
 def parse_direct_mention(event):
     message_text = event["text"]
     """
-        Finds a direct mention (a mention that is at the beginning) in message text
-        and returns the user ID which was mentioned. If there is no direct mention, returns None
+    Finds a direct mention (a mention that is at the beginning) in message text
+    and returns the user ID which was mentioned. If there is no direct mention, returns None
     """
     matches = re.search(MENTION_REGEX, message_text)
     # the first group contains the username, the second group contains the remaining message
@@ -1077,7 +1176,9 @@ if __name__ == "__main__":
         # Read bot's user ID by calling Web API method `auth.test`
         bot_id = slack_client.api_call("auth.test")["user_id"]
         while True:
-            #command, channel = parse_bot_commands(slack_client.rtm_read())
+            # The client can reject our rtm_read call for many reasons
+            # So when that happens, we wait 3 seconds and try to reconnect
+            # If there is no internet connection, this will continue to loop until there is
             try:
                 event = parse_bot_commands(slack_client.rtm_read())
             except BaseException as e:
@@ -1091,9 +1192,8 @@ if __name__ == "__main__":
                     log("Exception details: " + str(e))
                     continue
                 continue
-            #if command:
             if event:
-               commandKeeper.handle_event(event)
+                commandKeeper.handle_event(event)
             time.sleep(RTM_READ_DELAY)
     else:
         print("Connection failed. Exception traceback printed above.")

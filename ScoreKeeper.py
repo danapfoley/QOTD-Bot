@@ -12,10 +12,10 @@ def to_int(s):
 class ScoreKeeper:
     def __init__(self):
         self.data = []
-        self.todayRowNum = -1 #error value
-        self.totalsRowNum = 2 #manually set
-        self.userIDRowNum = 0 #manually set
-        self.userNameRowNum = 1 #manually set
+        self.todayRowNum = -1  #error value
+        self.totalsRowNum = 2  #manually chosen
+        self.userIDRowNum = 0  #manually chosen
+        self.userNameRowNum = 1  #manually chosen
 
         self.getDataFromFile()
         self.catchUpDateRows()
