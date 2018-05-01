@@ -1001,7 +1001,7 @@ if __name__ == "__main__":
         scoreKeeper = ScoreKeeper(slackClient)
         commandKeeper = CommandKeeper()
         pollKeeper = PollKeeper()
-        messageReactionMonitor = MessageReactionMonitor(slackClient, monitoredMessageCallback)
+        messageReactionMonitor = MessageReactionMonitor(monitoredMessageCallback)
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`

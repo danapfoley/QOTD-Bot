@@ -16,8 +16,7 @@ class MonitoredMessage:
         self.initTime = time.time()
 
 class MessageReactionMonitor:
-    def __init__(self, slackClient, callbackFunc):
-        self.slackClient = slackClient
+    def __init__(self, callbackFunc):
         #The callback function must be passed in from QOTDBot since it modifies other modules
         self.callbackFunc = callbackFunc
         self.messagesList = []
