@@ -383,8 +383,12 @@ def answer(channel, userID, argsString, timestamp):
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
         response = "This question needs to be validated manually. I'll ask " + slackClient.getNameByID(userWhoSubmitted) + " to check your answer."
         directUserChannel = slackClient.getDirectChannel(userWhoSubmitted)
-        slackClient.say(directUserChannel, slackClient.getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
-            + "\nIs this correct?\n(I don't know how to validate answers this way yet)")
+        apiResponse = slackClient.say(directUserChannel, slackClient.getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
+            + "\nIs this correct?\nReact to this message with :+1: to give them a point.")
+
+        if apiResponse is not None and "ts" in apiResponse:
+            messageReactionMonitor.addMonitoredMessage(channel, userID, apiResponse["ts"], {"qID" : identifier, "pointForUser" : userID}, "manual answer")
+
     else:
         response = "I couldn't find a question with that ID.\n Use `questions` to find the proper ID.\n"
 
@@ -402,7 +406,6 @@ def oldQuestions(channel, userID, argsString, timestamp):
     else:
         response = "I couldn't find any questions that were expired in the last 24 hours"
     slackClient.say(channel, response)
-    
 
 def hello(channel, userID, argsString, timestamp):
     """
@@ -412,7 +415,6 @@ def hello(channel, userID, argsString, timestamp):
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
     
     slackClient.say(channel, response)
-
 
 def addPoints(channel, userID, argsString, timestamp):
     """
@@ -476,7 +478,6 @@ def expireOldQuestions(channel, userID, argsString, timestamp):
         response = "No questions of yours older than 18 hours were found"
 
     slackClient.say(channel, response)
-
 
 def poll(channel, userID, argsString, timestamp):
     """
@@ -958,13 +959,40 @@ class CommandKeeper:
 
 #----------------------------------
 
+def monitoredMessageCallback(userWhoReacted, emoji, callbackKey, data):
 
+    if callbackKey == "manual answer":
+        q = questionKeeper.getQuestionByID(data["qID"])
+        if q is None or userWhoReacted != q.userID:
+            return False
+        if "+1:" not in emoji:
+            return False
 
+        qID = q.qID
+        pointForUser = data["pointForUser"]
+
+        q.answeredBy.append(pointForUser)
+        questionKeeper.writeQuestionsToFile()
+
+        if not scoreKeeper.userExists(pointForUser):
+            scoreKeeper.addNewUser(pointForUser)
+            scoreKeeper.addNameToUser(pointForUser, slackClient.getNameByID(pointForUser))
+        scoreKeeper.addUserPoint(pointForUser)
+
+        slackClient.say(POINT_ANNOUNCEMENT_CHANNEL,
+            "Point for " + slackClient.getNameByID(pointForUser) + ((" on question " + qID + "!") if qID != "" else "!") \
+            + (
+                "\nThough they are the one who submitted it :wha:..." if pointForUser == questionKeeper.getSubmitterByQID(
+                    qID) else ""))
+
+        slackClient.say(slackClient.getDirectChannel(pointForUser), "You got the question right!")
+
+        return True
+    return False
 
 
 if __name__ == "__main__":
 
-    print("Creating slack client")
     slackClient = WellBehavedSlackClient(SLACK_BOT_TOKEN)
 
     if slackClient.rtm_connect(with_team_state=False):
@@ -973,7 +1001,7 @@ if __name__ == "__main__":
         scoreKeeper = ScoreKeeper(slackClient)
         commandKeeper = CommandKeeper()
         pollKeeper = PollKeeper()
-        messageReactionMonitor = MessageReactionMonitor()
+        messageReactionMonitor = MessageReactionMonitor(slackClient, monitoredMessageCallback)
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`

@@ -5,26 +5,25 @@ import shutil
 
 MESSAGES_FILE_NAME = "monitoredMessages.json"
 
+
 class MonitoredMessage:
-    def __init__(self, channel, userID, timestamp, data, callback):
+    def __init__(self, channel, userID, timestamp, callbackKey, data):
         self.channel = channel
         self.userID = userID
         self.timestamp = timestamp
+        self.callbackKey = callbackKey
         self.data = data
-        self.callback = callback
         self.initTime = time.time()
 
-    #All callback functions should return True or False, for whether or not it can stop being monitored
-    def reactionAdded(self, userWhoReacted, emoji):
-        return self.callback(userWhoReacted, emoji, self.data)
-
 class MessageReactionMonitor:
-    def __init__(self):
+    def __init__(self, slackClient, callbackFunc):
+        self.slackClient = slackClient
+        #The callback function must be passed in from QOTDBot since it modifies other modules
+        self.callbackFunc = callbackFunc
         self.messagesList = []
         self.loadMessagesFromFile()
 
     def loadMessagesFromFile(self):
-        return
         try:
             file = open(MESSAGES_FILE_NAME)
         except:
@@ -37,12 +36,11 @@ class MessageReactionMonitor:
         with open(MESSAGES_FILE_NAME) as qFile:
             d = json.load(qFile)
             for mJson in d["monitoredMessages"]:
-                m = MonitoredMessage(mJson["channel"], mJson["userID"], mJson["timestamp"], mJson["data"], mJson["callback"])
+                m = MonitoredMessage(mJson["channel"], mJson["userID"], mJson["timestamp"], mJson["data"], mJson["callbackKey"])
                 m.initTime = mJson["initTime"]
                 self.messagesList.append(m)
 
     def writeMessagesToFile(self):
-        return
         messagesJson = {"questions" : []}
 
         self.expireOldMessages()
@@ -61,8 +59,8 @@ class MessageReactionMonitor:
         maxAge = 60 * 60 * 24 * 5  # 5 days
         self.messagesList = [m for m in self.messagesList if (now - m.initTime) < maxAge]
 
-    def addMonitoredMessage(self, channel, userID, timestamp, data, callback):
-        self.messagesList.append(MonitoredMessage(channel, userID, timestamp, data, callback))
+    def addMonitoredMessage(self, channel, userID, timestamp, callbackKey, data):
+        self.messagesList.append(MonitoredMessage(channel, userID, timestamp, callbackKey, data))
         self.writeMessagesToFile()
 
     def getMonitoredMessage(self, channel, timestamp):
@@ -77,7 +75,7 @@ class MessageReactionMonitor:
         if monitoredMessage is None:
             return
         #Run the callback function. If it returns true, we can remove it
-        if monitoredMessage.reactionAdded(userWhoReacted, emoji):
+        if self.callbackFunc(userWhoReacted, emoji, monitoredMessage.callbackKey, monitoredMessage.data):
             self.messagesList.remove(monitoredMessage)
 
 

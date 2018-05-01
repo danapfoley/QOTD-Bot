@@ -56,8 +56,9 @@ class WellBehavedSlackClient(SlackClient):
     def say(self, channel, response):
         if channel == "" or channel == "DEPLOY_CHANNEL":
             channel = DEPLOY_CHANNEL
+        apiResponse = None
         try:
-            self.api_call(
+            apiResponse = self.api_call(
                 "chat.postMessage",
                 channel=channel,
                 text=response,
@@ -66,6 +67,7 @@ class WellBehavedSlackClient(SlackClient):
             log("QOTD Bot says: " + (response if response else "[BLANK MESSAGE]") + "\n")
         except ValueError:
             log("QOTD Bot failed to say: " + (response if response else "[BLANK MESSAGE]") + "\n")
+        return apiResponse
 
     # Use this to add an emoji reaction to a message.
     # The timestamp can easily come from the command message, if that's what you're reacting to.
