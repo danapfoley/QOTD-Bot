@@ -17,10 +17,26 @@ pollKeeper = None
 messageReactionMonitor = None
 
 
-
-
 #Add more responses here to be randomly picked
 POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
+
+
+def getNameByID(userID):
+    # All Slack user IDs start with "U" or "W", by convention
+    # So this is an easy check for invalid names
+    if not (userID.startswith('U') or userID.startswith('W')):
+        return userID
+
+    #Our top priority is to get the name from the score sheet,
+    #since we can change that to a person's preference if they don't want to use their display name
+    nameFromScoreSheet = scoreKeeper.getUserNameInScoreSheet(userID)
+    if nameFromScoreSheet:
+        userName = nameFromScoreSheet
+        return userName
+
+    # Otherwise, we try the cached user list, and as a last resort, do an API call
+    return slackClient.getNameByID(userID)
+
 
 def needsMoreArgs(channel):
     slackClient.say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
@@ -36,7 +52,7 @@ def scores(channel, userID, argsString, timestamp):
     if len(args) > 0 and args[0] != "":
         scoresForUser = getIDFromReference(args[0])
         
-        if slackClient.getNameByID(scoresForUser) != scoresForUser: #if user name is valid
+        if getNameByID(scoresForUser) != scoresForUser: #if user name is valid
             response = scoreKeeper.getUserScores(scoresForUser)
         else:
             response = "I couldn't find that user. Use `scores help` for usage instructions"
@@ -131,7 +147,7 @@ def question(channel, userID, argsString, timestamp):
 
         if numAnswers > 0:
             response += ":\n"
-            response += "\n".join([("-" + slackClient.getNameByID(answeredByID)) for answeredByID in q.answeredBy])
+            response += "\n".join([("-" + getNameByID(answeredByID)) for answeredByID in q.answeredBy])
 
         response += "\n\n"
         response += str(numGuesses) + (" people" if numGuesses != 1 else " person") + " guessed " + q.qID \
@@ -139,7 +155,7 @@ def question(channel, userID, argsString, timestamp):
 
         if (numGuesses - numAnswers) > 0:
             response += ":\n"
-            response += "\n".join([("-" + slackClient.getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
+            response += "\n".join([("-" + getNameByID(guessedID)) for guessedID in q.guesses.keys() if guessedID not in q.answeredBy])
 
         slackClient.say(channel, response)
         return
@@ -351,10 +367,10 @@ def answer(channel, userID, argsString, timestamp):
 
         if not scoreKeeper.userExists(userID):
             scoreKeeper.addNewUser(userID)
-            scoreKeeper.addNameToUser(userID, slackClient.getNameByID(userID))
+            scoreKeeper.addNameToUser(userID, getNameByID(userID))
 
         scoreKeeper.addUserPoint(userID)
-        slackClient.say(POINT_ANNOUNCEMENT_CHANNEL, "Point for " + slackClient.getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
+        slackClient.say(POINT_ANNOUNCEMENT_CHANNEL, "Point for " + getNameByID(userID) + ((" on question " + qID + "!") if qID != "" else "!") \
                             + ("\nThough they are the one who submitted it :wha:..." if userID == questionKeeper.getSubmitterByQID(qID) else ""))
 
     elif checkResponse == "incorrect":
@@ -381,9 +397,9 @@ def answer(channel, userID, argsString, timestamp):
 
     elif checkResponse == "needs manual":
         userWhoSubmitted = questionKeeper.getSubmitterByQID(identifier)
-        response = "This question needs to be validated manually. I'll ask " + slackClient.getNameByID(userWhoSubmitted) + " to check your answer."
+        response = "This question needs to be validated manually. I'll ask " + getNameByID(userWhoSubmitted) + " to check your answer."
         directUserChannel = slackClient.getDirectChannel(userWhoSubmitted)
-        apiResponse = slackClient.say(directUserChannel, slackClient.getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
+        apiResponse = slackClient.say(directUserChannel, getNameByID(userID) + " has answered \"" + inputAnswer + "\" for your question,\n" + questionKeeper.getQuestionByID(identifier).prettyPrint() \
             + "\nIs this correct?\nReact to this message with :+1: to give them a point.")
 
         if apiResponse is not None and "ts" in apiResponse:
@@ -411,7 +427,7 @@ def hello(channel, userID, argsString, timestamp):
     """
     Say hi and some basic ID info
     """
-    response = "Hello " + slackClient.getNameByID(userID) + ", I'm QOTD Bot!"
+    response = "Hello " + getNameByID(userID) + ", I'm QOTD Bot!"
     response += "\nYour User ID is: " + userID + "\nThis channel's ID is: " + channel + "\nUse the `help` command for usage instructions.\n"
     
     slackClient.say(channel, response)
@@ -429,7 +445,7 @@ def addPoints(channel, userID, argsString, timestamp):
     pointsForUser = getIDFromReference(args[0])
     numPoints = args[1] if len(args) >= 2 and args[1] != "" else "1"
 
-    if slackClient.getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
+    if getNameByID(pointsForUser) == pointsForUser: #if user name is invalid
         slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
@@ -445,12 +461,12 @@ def addPoints(channel, userID, argsString, timestamp):
 
     if not scoreKeeper.userExists(userID):
         scoreKeeper.addNewUser(userID)
-        scoreKeeper.addNameToUser(userID, slackClient.getNameByID(userID))
+        scoreKeeper.addNameToUser(userID, getNameByID(userID))
 
     numPointsDigitsOnly = int(numPointsDigitsOnly)
     scoreKeeper.addUserPoints(pointsForUser, numPointsDigitsOnly)
 
-    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + slackClient.getNameByID(pointsForUser)
+    response = "Okay, I gave " + str(numPointsDigitsOnly) + " point" + ("s" if numPointsDigitsOnly != 1 else "") + " to " + getNameByID(pointsForUser)
     slackClient.say(DEPLOY_CHANNEL, response)
 
 def expireOldQuestions(channel, userID, argsString, timestamp):
@@ -466,7 +482,7 @@ def expireOldQuestions(channel, userID, argsString, timestamp):
         if len(q.getAnsweredUsers()) > 0:
             expiredQuestionsStrings.append("    Answered by:")
         for answeredUserID in q.getAnsweredUsers():
-            expiredQuestionsStrings.append("        -" + slackClient.getNameByID(answeredUserID))
+            expiredQuestionsStrings.append("        -" + getNameByID(answeredUserID))
         expiredQuestionsStrings.append("\n")
 
     if len(expiredQuestions) > 0:
@@ -626,7 +642,7 @@ def tell(channel, userID, argsString, timestamp):
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
-    if slackClient.getNameByID(userToTell) == userToTell: #if user name is invalid
+    if getNameByID(userToTell) == userToTell: #if user name is invalid
         slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
@@ -648,7 +664,7 @@ def devTell(channel, userID, argsString, timestamp):
     userToTell = getIDFromReference(args[0])
     whatToSay = args[1]
 
-    if slackClient.getNameByID(userToTell) == userToTell: #if user name is invalid
+    if getNameByID(userToTell) == userToTell: #if user name is invalid
         slackClient.say(channel, "I couldn't find that user. Use `add-point help` for usage instructions")
         return
 
@@ -954,7 +970,7 @@ class CommandKeeper:
         try:
             cmd.func(channel, userID, args, timestamp)
         except Exception as e:
-            slackClient.devLog(slackClient.getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n\n" + str(e) + "\n\n" + traceback.format_exc())
+            slackClient.devLog(getNameByID(event["user"]) + " said: " + event["text"] + "\nAnd the following error ocurred:\n\n" + str(e) + "\n\n" + traceback.format_exc())
 
 
 #----------------------------------
@@ -976,16 +992,16 @@ def monitoredMessageCallback(userWhoReacted, emoji, callbackKey, data):
 
         if not scoreKeeper.userExists(pointForUser):
             scoreKeeper.addNewUser(pointForUser)
-            scoreKeeper.addNameToUser(pointForUser, slackClient.getNameByID(pointForUser))
+            scoreKeeper.addNameToUser(pointForUser, getNameByID(pointForUser))
         scoreKeeper.addUserPoint(pointForUser)
 
         slackClient.say(POINT_ANNOUNCEMENT_CHANNEL,
-            "Point for " + slackClient.getNameByID(pointForUser) + ((" on question " + qID + "!") if qID != "" else "!") \
+            "Point for " + getNameByID(pointForUser) + ((" on question " + qID + "!") if qID != "" else "!") \
             + (
                 "\nThough they are the one who submitted it :wha:..." if pointForUser == questionKeeper.getSubmitterByQID(
                     qID) else ""))
 
-        slackClient.say(slackClient.getDirectChannel(pointForUser), "You got the question right!")
+        slackClient.say(slackClient.getDirectChannel(pointForUser), "You got question " + qID + " right!")
 
         return True
     return False
