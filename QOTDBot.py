@@ -425,6 +425,19 @@ def hello(channel, userID, argsString, timestamp):
     
     slackClient.say(channel, response)
 
+def changeMyName(channel, userID, argsString, timestamp):
+    newName = argsString
+
+    if scoreKeeper.userExists(userID):
+        oldName = scoreKeeper.getUserNameInScoreSheet(userID)
+        scoreKeeper.setUserNameInScoreSheet(userID, newName)
+        slackClient.say(channel, "Okay, I changed your name to " + newName)
+        slackClient.say(DEPLOY_CHANNEL, oldName + " has changed their name to " + newName)
+    else:
+        scoreKeeper.addNewUser(userID)
+        scoreKeeper.addNameToUser(userID, newName)
+        slackClient.say(channel, "Okay, I set your name to " + newName)
+
 
 def addPoints(channel, userID, argsString, timestamp):
     """
@@ -798,6 +811,12 @@ class CommandKeeper:
                 aliases = ["hi", "hello", "hola"],
                 func = hello,
                 helpText = "`hello` - says hi back and some basic information"
+            ),
+
+            Command(
+                aliases = ["change-my-name", "change-name"],
+                func = changeMyName,
+                helpText = "`change-my-name [new name] - changes your name to something other than your Slack display name"
             ),
 
             Command(
