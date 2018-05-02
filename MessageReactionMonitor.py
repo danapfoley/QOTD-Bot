@@ -35,17 +35,17 @@ class MessageReactionMonitor:
         with open(MESSAGES_FILE_NAME) as qFile:
             d = json.load(qFile)
             for mJson in d["monitoredMessages"]:
-                m = MonitoredMessage(mJson["channel"], mJson["userID"], mJson["timestamp"], mJson["data"], mJson["callbackKey"])
+                m = MonitoredMessage(mJson["channel"], mJson["userID"], mJson["timestamp"], mJson["callbackKey"], mJson["data"])
                 m.initTime = mJson["initTime"]
                 self.messagesList.append(m)
 
     def writeMessagesToFile(self):
-        messagesJson = {"questions" : []}
+        messagesJson = {"monitoredMessages" : []}
 
         self.expireOldMessages()
 
         for m in self.messagesList:
-            messagesJson["questions"].append(vars(m))
+            messagesJson["monitoredMessages"].append(vars(m))
 
         tempfile = NamedTemporaryFile(delete=False)
         with open(MESSAGES_FILE_NAME, 'w') as tempfile:

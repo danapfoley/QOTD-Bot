@@ -1,7 +1,7 @@
 import csv
 from tempfile import NamedTemporaryFile
 import shutil
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 SCORES_FILE_NAME = "scores.csv"
 
@@ -89,6 +89,7 @@ class ScoreKeeper:
         todayScore = ""
         totalScore = ""
 
+        column = None
         if self.userExists(userID):
             column = self.getUserColumnNum(userID)
             todayScore = str(self.data[self.todayRowNum][column])

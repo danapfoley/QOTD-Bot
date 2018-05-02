@@ -21,7 +21,7 @@ POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM" #Where points get announced
 DEVELOPER_ID = "U88LK3JN9" #Dana
 DEVELOPER_CHANNEL = "D9C0FSD0R" #Direct message channel with Dana
 
-DEPLOY_CHANNEL = QOTD_CHANNEL
+DEPLOY_CHANNEL = DEVELOPER_CHANNEL
 
 LOG_FILE = "log.txt"
 FILE_LOGGING = False
@@ -141,26 +141,19 @@ class WellBehavedSlackClient(SlackClient):
 
         return userName
 
-    def parseBotCommands(self, slack_events):
-        """
-        Parses a list of events coming from the Slack RTM API to find bot commands.
-        If a bot command is found, this function returns a tuple of command and channel.
-        If its not found, then this function returns None, None.
-        """
-        for event in slack_events:
-            if event["type"] == "goodbye":
-                print("Got 'goodbye' message. Reconnecting now")
-                self.rtm_connect(with_team_state=False)
-            if event["type"] == "error":
-                print("Network error. Retrying in 5 seconds...\n")
-                time.sleep(5)
-                return None
-            if event["type"] == "message" and not "subtype" in event:
-                processedEvent = self.parseDirectMention(event)
-                if processedEvent:
-                    log(self.getNameByID(event["user"]) + " says: " + event["text"] + "\n")
-                    return processedEvent
-        return None
+    def parseBotCommand(self, event):
+        if event["type"] == "goodbye":
+            print("Got 'goodbye' message. Reconnecting now")
+            self.rtm_connect(with_team_state=False)
+        if event["type"] == "error":
+            print("Network error. Retrying in 5 seconds...\n")
+            sleep(5)
+            return None
+        if event["type"] == "message" and "subtype" not in event:
+            processedEvent = self.parseDirectMention(event)
+            if processedEvent:
+                log(self.getNameByID(event["user"]) + " says: " + event["text"] + "\n")
+                return processedEvent
 
     def parseDirectMention(self, event):
         message_text = event["text"]

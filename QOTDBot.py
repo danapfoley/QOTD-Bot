@@ -981,7 +981,7 @@ def monitoredMessageCallback(userWhoReacted, emoji, callbackKey, data):
         q = questionKeeper.getQuestionByID(data["qID"])
         if q is None or userWhoReacted != q.userID:
             return False
-        if "+1:" not in emoji:
+        if "+1" not in emoji:
             return False
 
         qID = q.qID
@@ -1027,7 +1027,14 @@ if __name__ == "__main__":
             # So when that happens, we wait 3 seconds and try to reconnect
             # If there is no internet connection, this will continue to loop until there is
             try:
-                event = slackClient.parseBotCommands(slackClient.rtm_read())
+                events = slackClient.rtm_read()
+                for event in events:
+                    if event["type"] == "reaction_added":
+                        messageReactionMonitor.reactionAdded(event["item"]["channel"], event["item"]["ts"], event["user"], event["reaction"])
+                        continue
+                    event = slackClient.parseBotCommand(event)
+                    if event:
+                        commandKeeper.handle_event(event)
             except BaseException as e:
                 log("Connection Error. Retrying in 3 seconds...")
                 log("Exception details: " + str(e))
@@ -1038,9 +1045,6 @@ if __name__ == "__main__":
                     log("Couldn't reconnect :(")
                     log("Exception details: " + str(e))
                     continue
-                continue
-            if event:
-                commandKeeper.handle_event(event)
             time.sleep(RTM_READ_DELAY)
     else:
         print("Connection failed. Exception traceback printed above.")
