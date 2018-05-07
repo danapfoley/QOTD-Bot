@@ -180,6 +180,10 @@ class WellBehavedSlackClient(SlackClient):
         else:
             return None
 
+    def setBotID(self, newBotID):
+        global bot_id
+        bot_id = newBotID
+
 
 # Just for keeping/printing a history of what was said.
 # We might keep file logging off if the frequent read/write causes lag or disk wear,

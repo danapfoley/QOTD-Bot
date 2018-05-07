@@ -1003,7 +1003,7 @@ if __name__ == "__main__":
 
         print("QOTD Bot connected and running!")
         # Read bot's user ID by calling Web API method `auth.test`
-        bot_id = slackClient.api_call("auth.test")["user_id"]
+        slackClient.setBotID(slackClient.api_call("auth.test")["user_id"])
         while True:
             # The client can reject our rtm_read call for many reasons
             # So when that happens, we wait 3 seconds and try to reconnect
