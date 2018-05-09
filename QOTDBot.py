@@ -816,7 +816,7 @@ class CommandKeeper:
             Command(
                 aliases = ["change-my-name", "change-name"],
                 func = changeMyName,
-                helpText = "`change-my-name [new name] - changes your name to something other than your Slack display name"
+                helpText = "`change-my-name [new name]` - changes your name to something other than your Slack display name"
             ),
 
             Command(
