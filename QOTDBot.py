@@ -854,7 +854,7 @@ class CommandKeeper:
                 aliases = ["approve"],
                 func = approve,
                 category = "Questions and Answers",
-                helpText = "`validate [@ user] [question ID]` - awards a point for a user on a question of yours."
+                helpText = "`approve [@ user] [question ID]` - awards a point for a user on a question of yours."
             ),
 
             Command(
