@@ -402,6 +402,49 @@ def answer(channel, userID, argsString, timestamp):
 
     slackClient.say(channel, response)
 
+
+def approve(channel, userID, argsString, timestamp):
+    """
+    Award a point for a user on a question of yours.
+    In contrast to add-point, this will announce the point in the usual channel,
+    and mark the question as answered correctly by the user in question
+    """
+
+    args = argsString.split(" ")
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+
+    referencedUserID = getIDFromReference(args[0])
+    qID = args[1]
+
+    q = questionKeeper.getUserQuestionByID(qID, userID)
+
+    if q is None:
+        slackClient.say(channel, "I couldn't find a question of yours with that ID")
+        return
+    if getNameByID(referencedUserID) == referencedUserID: #if user name is invalid
+        slackClient.say(channel, "I couldn't find that user")
+        return
+
+    if not questionKeeper.addUserWhoAnswered(referencedUserID, qID):
+        slackClient.say(channel, "It looks like that user has already answered question " + q.qID + "!")
+        return
+
+    #Only get here if the question exists, the user is valid, and we want to give them a point
+    if not scoreKeeper.userExists(referencedUserID):
+        scoreKeeper.addNewUser(referencedUserID)
+        scoreKeeper.addNameToUser(referencedUserID, getNameByID(referencedUserID))
+
+    scoreKeeper.addUserPoint(referencedUserID)
+
+    slackClient.say(POINT_ANNOUNCEMENT_CHANNEL,
+                    "Point for " + getNameByID(referencedUserID) + ((" on question " + qID + "!") if qID != "" else "!") \
+                    + ("\nThough they are the one who submitted it :wha:..." if referencedUserID == questionKeeper.getSubmitterByQID(qID) else ""))
+    slackClient.react(channel, timestamp, "thumbsup")
+
+
+
 def oldQuestions(channel, userID, argsString, timestamp):
     """
     List all questions that were expired less than 24 hours ago.
@@ -805,6 +848,13 @@ class CommandKeeper:
                 helpText = "`answer [identifier] [your answer]` - Must be used in a private channel. "\
                          + "Checks your `answer` for the corresponding question.",
                 privateOnly = True
+            ),
+
+            Command(
+                aliases = ["approve"],
+                func = approve,
+                category = "Questions and Answers",
+                helpText = "`validate [@ user] [question ID]` - awards a point for a user on a question of yours."
             ),
 
             Command(

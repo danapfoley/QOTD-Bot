@@ -76,6 +76,12 @@ class Question:
         else:
             return False
 
+    def addUserWhoAnswered(self, userID):
+        if userID in self.answeredBy:
+            return False
+        self.answeredBy.append(userID)
+        return True
+
     def timeToExpire(self):
         return (time.time() - self.publishTime) > 60 * 60 * 18  #18 hours
 
@@ -226,6 +232,12 @@ class QuestionKeeper:
             return True
         else:
             return False
+
+    def addUserWhoAnswered(self, userID, qID):
+        if self.getQuestionByID(qID).addUserWhoAnswered(userID):
+            self.writeQuestionsToFile()
+            return True
+        return False
 
     def getQuestionByID(self, qID):
         qID, category = splitCategory(qID)
