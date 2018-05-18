@@ -83,7 +83,7 @@ class Question:
         return True
 
     def timeToExpire(self):
-        return (time.time() - self.publishTime) > 60 * 60 * 18  #18 hours
+        return self.published and (time.time() - self.publishTime) > 60 * 60 * 18  #18 hours
 
     #Display a question with its category and ID in a nicely formatted way
     def prettyPrint(self):
