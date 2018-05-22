@@ -1,13 +1,13 @@
 # QOTD Bot
 
-This is a Slack bot that automates the process of submitting "Questions Of The Day" to users in a public channel. Currently deployed in SoarTech's channel, #qotd. 
+This is a Slack bot that automates the process of submitting "Questions Of The Day" to users in a public channel. Currently deployed in SoarTech's channel, #qotd. There is an additional channel, #qotd-points, where new points earned for questions are announced in realtime.
 
 It is capable of taking in user-submitted questions with answers, comparing those answers to user attempts, and keeping track of scores for correct answers. It also handles polls, which any user is capable of making or voting on.
 
 In a public channel, call the bot with @qotd\_bot at the beginning of your message (commands don't use "/"). Alternatively, you can start a private chat with the bot and just talk to it directly, without "@qotd\_bot" at the beginning of your message. Some commands like `answer` are not permitted to run in a public channel.
 If you're ever lost, say "@qotd\_bot help" for a list of commands, or contact me directly.
 
-Additionally, if you encounter any bugs or have any feature requests, feel free to either contact me about it, post in #qotd or #qotd-public-test, or submit an issue on GitLab.
+Additionally, if you encounter any bugs or have any feature requests, feel free to either contact me about it, post in #qotd, or submit an issue on GitLab.
 
 ## Commands
 
@@ -18,6 +18,8 @@ Additionally, if you encounter any bugs or have any feature requests, feel free 
    `add-answers [identifier] [new answer 1] : <new answer 2> : ...` - adds multiple new answers for the question with the corresponding identifier
 
    `answer [identifier] [your answer]` - Must be used in a private channel. Checks your `answer` for the corresponding question.
+   
+   `approve [@ user] [question ID]` - awards a point for a user on a question of yours.
 
    `expire-old-questions` - removes all questions published more than 18 hours ago
 
@@ -62,6 +64,8 @@ Additionally, if you encounter any bugs or have any feature requests, feel free 
 ### Misc:
 
    `hello` - says hi back and some basic information
+
+   `change-my-name [new name]` - changes your name to something other than your Slack display name
 
 
 
