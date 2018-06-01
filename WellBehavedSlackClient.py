@@ -28,6 +28,11 @@ FILE_LOGGING = False
 
 USER_LIST_FILE = "userList.json"
 
+WELCOME_MESSAGE = "I'm QOTD Bot, and I help with the the question of the day channel. I keep track of user-submitted " +\
+                  "questions, check answers, and keep score. You can talk to me by starting a private chat with @QOTDBot " +\
+                  "or putting \"@QOTDBot\" at the beginning of your message in this channel to refer to me. For example, " +\
+                  "say \"@QOTDBot help\" to see a list of commands I know. Feel free to speak up if you have any questions!"
+
 class WellBehavedSlackClient(SlackClient):
     '''Slack client with rate limit'''
 
@@ -153,6 +158,8 @@ class WellBehavedSlackClient(SlackClient):
                 print("Network error. Retrying in 5 seconds...\n")
                 time.sleep(5)
                 return None
+            if event["type"] == "member_joined_channel" and event["channel"] == QOTD_CHANNEL:
+                self.say(QOTD_CHANNEL, "Welcome " + getReferenceByID(event["user"]) + "! " + WELCOME_MESSAGE)
             if event["type"] == "message" and not "subtype" in event:
                 processedEvent = self.parseDirectMention(event)
                 if processedEvent:

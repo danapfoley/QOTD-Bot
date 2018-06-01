@@ -16,6 +16,11 @@ class FakeSlackClient:
     def getNameByID(self, userID):
         return "Dana Foley"
 
+    def parseBotCommands(self, events):
+        for event in events:
+            if event["type"] == "member_joined_channel" and event["channel"] == qb.QOTD_CHANNEL:
+                self.say(qb.QOTD_CHANNEL, "Welcome " + fakeGetReferenceByID(event["user"]) + "! " + qb.WELCOME_MESSAGE)
+
 
 def fakeLog(response):
     pass
@@ -48,6 +53,13 @@ if __name__ == "__main__":
     print("QOTD Bot pretending to be connected and running!")
 
     inputStr = ""
+    qb.slackClient.parseBotCommands([{
+        "type": "member_joined_channel",
+        "user": "W06GH7XHN",
+        "channel": qb.QOTD_CHANNEL,
+        "channel_type": "G",
+        "team": "T8MPF7EHL"
+    }])
     while inputStr != "exit":
         inputStr = input("> ")
         event = {"user" : qb.DEVELOPER_ID, "channel" : qb.DEVELOPER_CHANNEL, "text" : inputStr}
