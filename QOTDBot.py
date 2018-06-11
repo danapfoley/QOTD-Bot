@@ -156,6 +156,15 @@ def question(channel, userID, argsString, timestamp):
         slackClient.say(channel, response)
         return
 
+    if question == "author":
+        submitterID = questionKeeper.getSubmitterByQID(identifier)
+        if submitterID is None:
+            slackClient.say(channel, "I couldn't find a question with that ID")
+            return
+        else:
+            slackClient.say(channel, "That question was submitted by " + getReferenceByID(submitterID))
+            return
+
 
     #only get here if a valid question input format is given
     questionAdded = questionKeeper.addQuestion(userID = userID, qID = identifier, questionText = question, correctAnswers = answers)
@@ -784,7 +793,8 @@ class CommandKeeper:
                 category = "Questions and Answers",
                 helpText = "`question [identifier] [question] : <answer1> : <answer2> : ...` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
-                         + "`question [identifier] count` - shows stats on who has answered/guessed a question.",
+                         + "`question [identifier] count` - shows stats on who has answered/guessed a question."\
+                         + "`question [identifier] author` - says who submitted a question",
                 privateOnly = True
             ),
 
