@@ -793,7 +793,7 @@ class CommandKeeper:
                 category = "Questions and Answers",
                 helpText = "`question [identifier] [question] : <answer1> : <answer2> : ...` - creates a question with a reference tag `identifier`.\n"\
                          + "`question [identifier] remove` - removes the question with the corresponding ID.\n"\
-                         + "`question [identifier] count` - shows stats on who has answered/guessed a question."\
+                         + "`question [identifier] count` - shows stats on who has answered/guessed a question.\n"\
                          + "`question [identifier] author` - says who submitted a question",
                 privateOnly = True
             ),
