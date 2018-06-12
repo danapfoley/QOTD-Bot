@@ -2,6 +2,7 @@
 __pycache__/
 log.txt
 questions.json
+polls.json
 scores.csv
 userList.json
 questionsHistory.json
