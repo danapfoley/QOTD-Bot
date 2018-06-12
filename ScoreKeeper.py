@@ -2,6 +2,7 @@ import csv
 from tempfile import NamedTemporaryFile
 import shutil
 from datetime import date, datetime, timedelta
+from typing import Optional
 
 SCORES_FILE_NAME = "scores.csv"
 
@@ -21,7 +22,7 @@ class ScoreKeeper:
         self.getDataFromFile()
         self.catchUpDateRows()
 
-    def getTodayScores(self):
+    def getTodayScores(self) -> str:
         scoresList = []
         todayScores = self.data[self.todayRowNum]
         for column, score in enumerate(todayScores):
@@ -35,7 +36,7 @@ class ScoreKeeper:
         else:
             return "No new scores from today.\n"
 
-    def getTodayScoresRanked(self):
+    def getTodayScoresRanked(self) -> str:
         scoresList = []
         todayScores = self.data[self.todayRowNum]
         for column, score in enumerate(todayScores):
@@ -55,7 +56,7 @@ class ScoreKeeper:
         else:
             return "No new scores from today.\n"
 
-    def getTotalScores(self):
+    def getTotalScores(self) -> str:
         scoresList = []
         totalScores = self.data[self.totalsRowNum]
         for column, score in enumerate(totalScores):
@@ -67,7 +68,7 @@ class ScoreKeeper:
         scoresList.sort(key=lambda s: s.lower())
         return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
 
-    def getTotalScoresRanked(self):
+    def getTotalScoresRanked(self) -> str:
         scoresList = []
         totalScores = self.data[self.totalsRowNum]
         for column, score in enumerate(totalScores):
@@ -84,7 +85,7 @@ class ScoreKeeper:
             scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
         return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
 
-    def getUserScores(self, userID):
+    def getUserScores(self, userID: str) -> str:
         output = ""
         todayScore = ""
         totalScore = ""
@@ -139,16 +140,16 @@ class ScoreKeeper:
 
             self.todayRowNum = len(self.data) - 1
         
-    def userExists(self, userID):
+    def userExists(self, userID: str) -> bool:
         return userID in self.data[self.userIDRowNum]
 
-    def getUserColumnNum(self, userID):
+    def getUserColumnNum(self, userID: str) -> int:
         if userID in self.data[self.userIDRowNum]:
             return self.data[self.userIDRowNum].index(userID)
         else:
             return -1
 
-    def getUserNameInScoreSheet(self, userID):
+    def getUserNameInScoreSheet(self, userID: str) -> Optional[str]:
         column = self.getUserColumnNum(userID)
 
         if column != -1:
@@ -156,7 +157,7 @@ class ScoreKeeper:
         else:
             return None
 
-    def setUserNameInScoreSheet(self, userID, newName):
+    def setUserNameInScoreSheet(self, userID: str, newName: str):
         column = self.getUserColumnNum(userID)
 
         if column != -1:
@@ -165,20 +166,20 @@ class ScoreKeeper:
         else:
             return False
 
-    def addNewUser(self, userID):
+    def addNewUser(self, userID: str):
         for idx, row in enumerate(self.data):
             self.data[idx].append("")
         self.data[self.totalsRowNum][-1] = 0
         self.data[self.userIDRowNum][-1] = userID
 
-    def addNameToUser(self, userID, userName):
+    def addNameToUser(self, userID: str, userName: str):
         columnNum = self.getUserColumnNum(userID)
         self.data[self.userNameRowNum][columnNum] = userName
 
-    def addUserPoint(self, userID):
+    def addUserPoint(self, userID: str):
         self.addUserPoints(userID, 1)
 
-    def addUserPoints(self, userID, numPoints):
+    def addUserPoints(self, userID: str, numPoints: int):
         
         self.catchUpDateRows()
 
@@ -198,7 +199,7 @@ class ScoreKeeper:
         self.data = list(csv.reader(file))
         file.close()
 
-    def announceMontlyWinners(self, monthName):
+    def announceMontlyWinners(self, monthName: str):
         scoresList = []
         totalScores = self.data[self.totalsRowNum]
         for column, score in enumerate(totalScores):

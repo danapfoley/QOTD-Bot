@@ -2,13 +2,14 @@ import time
 import json
 from tempfile import NamedTemporaryFile
 import shutil
+from typing import List, Dict, Tuple, Optional
 
 MAX_GUESSES = 3
 
 QUESTIONS_FILE_NAME = "questions.json"
 OLD_QUESTIONS_FILE_NAME = "questionsHistory.json"
 
-def splitCategory(qID):
+def splitCategory(qID: str) -> Tuple[str, str]:
     #Splitting the category from qID.
     #Current format is: "Category"qID
     firstInst, lastInst = qID.find('"'), qID.rfind('"')
@@ -21,22 +22,22 @@ def splitCategory(qID):
 
 class Question:
     def __init__(self, userID, qID, questionText, correctAnswers = [], category = ""):
-        self.userID = userID
-        self.qID = qID
-        self.questionText = questionText
-        self.correctAnswers = correctAnswers
-        self.category = category
-        self.initTime = time.time()
-        self.publishTime = 0
-        self.expireTime = 0
-        self.published = False
-        self.justPublished = False
-        self.answeredBy = []
-        self.guesses = {}
+        self.userID: str = userID
+        self.qID: str = qID
+        self.questionText: str = questionText
+        self.correctAnswers: List[str] = correctAnswers
+        self.category: str = category
+        self.initTime: float = time.time()
+        self.publishTime: float = 0
+        self.expireTime: float = 0
+        self.published: bool = False
+        self.justPublished: bool = False
+        self.answeredBy: List[str] = []
+        self.guesses: Dict[str, int] = {}
 
     #We've established rules for which words/characters shouldn't matter in answers.
     #Here is where those get dealt with
-    def cleanUpAnswer(self, answer):
+    def cleanUpAnswer(self, answer: str) -> str:
         answer = answer.lower().strip()
         words = answer.split(' ')
         removeWords = ["a","an","the","and"]
@@ -53,61 +54,61 @@ class Question:
     #This is just for determining answer correctness
     #If we add a feature in the future for requiring a list of items to all be matched,
     #   here is where that should be added.
-    def validateAnswer(self, inputAnswer):
+    def validateAnswer(self, inputAnswer: str) -> bool:
         for correctAnswer in self.correctAnswers:
             match = self.cleanUpAnswer(correctAnswer) == self.cleanUpAnswer(inputAnswer)
             if match:
                 return True
         return False
 
-    def checkAnswer(self, userID, inputAnswer):
+    def checkAnswer(self, userID, inputAnswer: str) -> bool:
         if self.validateAnswer(inputAnswer) and userID not in self.answeredBy:
             self.answeredBy.append(userID)
             return True
         return False
 
-    def addAnswer(self, newAnswer):
+    def addAnswer(self, newAnswer: str):
         self.correctAnswers.append(newAnswer)
 
-    def removeAnswer(self, existingAnswer):
+    def removeAnswer(self, existingAnswer: str) -> bool:
         if existingAnswer in self.correctAnswers:
             self.correctAnswers.remove(existingAnswer)
             return True
         else:
             return False
 
-    def addUserWhoAnswered(self, userID):
+    def addUserWhoAnswered(self, userID: str) -> bool:
         if userID in self.answeredBy:
             return False
         self.answeredBy.append(userID)
         return True
 
-    def timeToExpire(self):
+    def timeToExpire(self) -> bool:
         return self.published and (time.time() - self.publishTime) > 60 * 60 * 18  #18 hours
 
     #Display a question with its category and ID in a nicely formatted way
-    def prettyPrint(self):
+    def prettyPrint(self) -> str:
         output = "" if self.category == "" else (self.category + " ")
         output = output + "(" + self.qID + "): " + self.questionText
         return output
 
-    def prettyPrintWithAnswer(self):
+    def prettyPrintWithAnswer(self) -> str:
         return self.prettyPrint() + " : " + (" : ".join(self.correctAnswers) if len(self.correctAnswers) > 0 else "(no answer given)")
 
-    def getAnsweredUsers(self):
+    def getAnsweredUsers(self) -> List[str]:
         return self.answeredBy
 
-    def countAnswers(self):
+    def countAnswers(self) -> int:
         return len(self.answeredBy)
     
-    def countGuesses(self):
+    def countGuesses(self) -> int:
         return len(self.guesses)
 
     #There's probably a better way to do this,
     #   but to make sure that only the newly-published questions get displayed,
     #   we have a justPublished flag that is set when publish is called
     #   and unset when QuestionKeeper.firstTimeDisplay is called.
-    def publish(self):
+    def publish(self) -> bool:
         if self.published:
             return False
         else:
@@ -118,7 +119,7 @@ class Question:
 
 class QuestionKeeper:
     def __init__(self):
-        self.questionList = []
+        self.questionList: List[Question] = []
         self.loadQuestionsFromFile()
 
     #This only runs on startup to retrieve questions from the persistent file
@@ -162,7 +163,7 @@ class QuestionKeeper:
         shutil.move(tempfile.name, QUESTIONS_FILE_NAME)
 
     #When questions expire (not get removed), we insert them into the running history of questions in a persistent file
-    def writeRemovedQuestionsToFile(self, removedQuestionsList):
+    def writeRemovedQuestionsToFile(self, removedQuestionsList: List[Question]):
         try:
             file = open(OLD_QUESTIONS_FILE_NAME)
             questionsJson = json.load(file)
@@ -182,7 +183,7 @@ class QuestionKeeper:
 
         shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
 
-    def addQuestion(self, userID, qID, questionText, correctAnswers = []):
+    def addQuestion(self, userID: str, qID: str, questionText: str, correctAnswers: List[str] = []) -> bool:
         qID, category = splitCategory(qID)
 
         #prevent duplicate IDs
@@ -196,7 +197,7 @@ class QuestionKeeper:
         self.writeQuestionsToFile()
         return True
 
-    def removeQuestion(self, qID, userID):
+    def removeQuestion(self, qID: str, userID: str) -> bool:
         qID, category = splitCategory(qID)
 
         for q in self.questionList:
@@ -209,7 +210,7 @@ class QuestionKeeper:
         return False
 
     #Adds a new allowed answer for a question. The userID must be the same as the user who submitted the Q
-    def addAnswer(self, userID, qID, newAnswer):
+    def addAnswer(self, userID: str, qID: str, newAnswer: str) -> bool:
         qID, category = splitCategory(qID)
 
         q = self.getUserQuestionByID(qID, userID)
@@ -222,7 +223,7 @@ class QuestionKeeper:
             return False
 
     #Complementary to addAnswer
-    def removeAnswer(self, userID, qID, existingAnswer):
+    def removeAnswer(self, userID: str, qID: str, existingAnswer: str) -> bool:
         qID, category = splitCategory(qID)
 
         q = self.getUserQuestionByID(qID, userID)
@@ -233,13 +234,13 @@ class QuestionKeeper:
         else:
             return False
 
-    def addUserWhoAnswered(self, userID, qID):
+    def addUserWhoAnswered(self, userID: str, qID: str) -> bool:
         if self.getQuestionByID(qID).addUserWhoAnswered(userID):
             self.writeQuestionsToFile()
             return True
         return False
 
-    def getQuestionByID(self, qID):
+    def getQuestionByID(self, qID: str) -> Optional[Question]:
         qID, category = splitCategory(qID)
 
         for q in self.questionList:
@@ -249,7 +250,7 @@ class QuestionKeeper:
         return None
 
     #Gets a question only if it was submitted by the user in question, None otherwise
-    def getUserQuestionByID(self, qID, userID):
+    def getUserQuestionByID(self, qID: str, userID: str) -> Optional[Question]:
         qID, category = splitCategory(qID)
         qID = qID.lower()
 
@@ -259,7 +260,7 @@ class QuestionKeeper:
 
         return None
 
-    def getSubmitterByQID(self, qID):
+    def getSubmitterByQID(self, qID: str) -> Optional[str]:
         q = self.getQuestionByID(qID)
         if q:
             return q.userID
@@ -268,7 +269,7 @@ class QuestionKeeper:
 
     #Checks for answer correctness when possible, and returns a string based on how it went.
     #There are many possibilities here. If Python had enums, this would be a little bit cleaner
-    def checkAnswer(self, userID, qID, inputAnswer):
+    def checkAnswer(self, userID: str, qID: str, inputAnswer: str) -> str:
         q = self.getQuestionByID(qID)
         if q and q.published:
             #Don't allow guesses after someone has answered already
@@ -307,7 +308,7 @@ class QuestionKeeper:
             return "incorrect"
         return "not found"
 
-    def listQuestions(self):
+    def listQuestions(self) -> str:
         output = ""
         for q in self.questionList:
             if q.published:
@@ -320,7 +321,7 @@ class QuestionKeeper:
     #       -They haven't answered it already
     #       -They weren't the one to submit it
     #       -They haven't reached the max number of guesses
-    def listQuestionsPrivate(self, userID):
+    def listQuestionsPrivate(self, userID: str) -> str:
         output = ""
         for q in self.questionList:
             if q.published:
@@ -332,7 +333,7 @@ class QuestionKeeper:
         return output
 
     #Same as listQuestionsPrivate, except we just omit the questions that wouldn't have had a bullet point
-    def listIncompleteQuestionsPrivate(self, userID):
+    def listIncompleteQuestionsPrivate(self, userID: str) -> str:
         output = ""
         for q in self.questionList:
             if q.published \
@@ -342,7 +343,7 @@ class QuestionKeeper:
         return output
 
     #Called by `my-questions`. Displays a user's questions with answers
-    def listQuestionsByUser(self, userID):
+    def listQuestionsByUser(self, userID: str) -> str:
         output = ""
         for q in self.questionList:
             if q.userID == userID:
@@ -351,7 +352,7 @@ class QuestionKeeper:
 
     #Expires all questions over a certain age (right now we're using 18 hours) from a specific user.
     #Returns a list of questions that got expired
-    def expireQuestions(self, userID):
+    def expireQuestions(self, userID: str) -> List[Question]:
         questionsExpired = []
         for q in self.questionList:
             if q.timeToExpire() and q.userID == userID:
@@ -367,7 +368,7 @@ class QuestionKeeper:
 
     #Publishes one question
     #Should be made user-exclusive in the future
-    def publishByID(self, qID):
+    def publishByID(self, qID: str) -> str:
         q = self.getQuestionByID(qID)
         if q:
             if q.publish():
@@ -378,14 +379,14 @@ class QuestionKeeper:
         else:
             return "notFound"
 
-    def publishAllByUser(self, userID):
+    def publishAllByUser(self, userID: str):
         for q in self.questionList:
             if q.userID == userID:
                 q.publish()
         self.writeQuestionsToFile()
 
     #When a question/questions get published
-    def firstTimeDisplay(self):
+    def firstTimeDisplay(self) -> str:
         output = ""
         for q in self.questionList:
             if q.justPublished:
@@ -395,7 +396,7 @@ class QuestionKeeper:
         return output
 
     #Reads from the questions history file, and returns a string of displayed question that expired less than 24 hours ago
-    def getOldQuestionsString(self):
+    def getOldQuestionsString(self) -> str:
         try:
             file = open(OLD_QUESTIONS_FILE_NAME)
             oldQuestions = json.load(file)

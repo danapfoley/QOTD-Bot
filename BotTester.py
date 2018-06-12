@@ -1,34 +1,35 @@
 import QOTDBot as qb
+from typing import List
 
 class FakeSlackClient:
-    def say(self, channel, response):
+    def say(self, channel: str, response: str):
         print(response)
 
-    def react(self, channel, timestamp, emoji):
+    def react(self, channel: str, timestamp: str, emoji: str):
         print(":" + emoji + ":")
 
-    def devLog(self, response):
+    def devLog(self, response: str):
         print(response)
 
-    def getDirectChannel(self, userID):
+    def getDirectChannel(self, userID: str):
         return qb.DEPLOY_CHANNEL
 
-    def getNameByID(self, userID):
+    def getNameByID(self, userID: str):
         return "Dana Foley"
 
-    def parseBotCommands(self, events):
+    def parseBotCommands(self, events: List[dict]):
         for event in events:
             if event["type"] == "member_joined_channel" and event["channel"] == qb.QOTD_CHANNEL:
                 self.say(qb.QOTD_CHANNEL, "Welcome " + fakeGetReferenceByID(event["user"]) + "! " + qb.WELCOME_MESSAGE)
 
 
-def fakeLog(response):
+def fakeLog(response: str):
     pass
 
-def fakeGetReferenceByID(userID):
+def fakeGetReferenceByID(userID: str):
     return "@dana.foley"
 
-def fakeGetIDFromReference(userIDReference):
+def fakeGetIDFromReference(userIDReference: str):
     return qb.DEVELOPER_ID
 
 

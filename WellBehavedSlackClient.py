@@ -3,6 +3,7 @@ import json
 import os
 import re
 from slackclient import SlackClient
+from typing import List, Dict, Optional
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -101,14 +102,14 @@ class WellBehavedSlackClient(SlackClient):
     #   and the command in question wasn't sent in that user's private channel
     #   we can use an API call to open a conversation / retrieve a channel ID.
     # In the future we should cache this info to speed up response time
-    def getDirectChannel(self, userID):
+    def getDirectChannel(self, userID: str) -> str:
         dmChannel = self.api_call(
             "conversations.open",
             users=userID
         )
         return dmChannel["channel"]["id"]
 
-    def getNameByID(self, userID):
+    def getNameByID(self, userID: str) -> str:
         # All Slack user IDs start with "U", by convention
         # So this is an easy check for invalid names
         if not userID.startswith('U'):
@@ -144,7 +145,7 @@ class WellBehavedSlackClient(SlackClient):
 
         return userName
 
-    def parseBotCommands(self, slack_events):
+    def parseBotCommands(self, slack_events: List[dict]) -> Optional[dict]:
         """
         Parses a list of events coming from the Slack RTM API to find bot commands.
         If a bot command is found, this function returns a tuple of command and channel.
@@ -167,7 +168,7 @@ class WellBehavedSlackClient(SlackClient):
                     return processedEvent
         return None
 
-    def parseDirectMention(self, event):
+    def parseDirectMention(self, event: dict) -> Optional[dict]:
         message_text = event["text"]
         """
         Finds a direct mention (a mention that is at the beginning) in message text
@@ -187,7 +188,7 @@ class WellBehavedSlackClient(SlackClient):
         else:
             return None
 
-    def setBotID(self, newBotID):
+    def setBotID(self, newBotID: str):
         global bot_id
         bot_id = newBotID
 
@@ -195,7 +196,7 @@ class WellBehavedSlackClient(SlackClient):
 # Just for keeping/printing a history of what was said.
 # We might keep file logging off if the frequent read/write causes lag or disk wear,
 #   but no reason not to print
-def log(response):
+def log(response: str):
     if FILE_LOGGING:
         file = open(LOG_FILE, "a", newline='', encoding='utf8')
         file.write(response)
@@ -205,33 +206,33 @@ def log(response):
 # References to users appear to begin with "@" in Slack, followed by a person's name
 # But behind the scenes, they're user IDs wrapped up in "<>" characters, e.g. "<@U1234ABCD>"
 # So if we want to reference a user when posting a message, we take their ID, and wrap it.
-def getReferenceByID(userID):
+def getReferenceByID(userID: str) -> str:
     return "<@" + userID + ">"
 
 # Similarly, if we want to get an ID from a reference, we just strip the wrapping
-def getIDFromReference(userIDReference):
+def getIDFromReference(userIDReference: str) -> str:
     for char in "<>@":
         userIDReference = userIDReference.replace(char, "")
     userID = userIDReference.strip()
     return userID
 
-def checkPublic(messageEvent):
+def checkPublic(messageEvent: dict) -> str:
     if not isEventPrivate(messageEvent):
         return "You can't use this command in a public channel. Message me directly instead"
     else:
         return ""
 
-def checkPrivate(messageEvent):
+def checkPrivate(messageEvent: dict) -> str:
     if isEventPrivate(messageEvent):
         return "You can't use this command in a private channel. Use the public channel instead"
     else:
         return ""
 
-def isChannelPrivate(channel):
+def isChannelPrivate(channel: str) -> bool:
     """Checks if public slack channel"""
     return channel.startswith('D')
 
-def isEventPrivate(messageEvent):
+def isEventPrivate(messageEvent: dict) -> bool:
     """Checks if private slack channel"""
     return messageEvent['channel'].startswith('D')
 
