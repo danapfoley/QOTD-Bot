@@ -1,20 +1,3 @@
 {
-    "polls": [
-        {
-            "userID": "U88LK3JN9",
-            "pID": "p1",
-            "pollQuestionText": "what do you think about this feature?",
-            "options": {
-                "1": "it's cool",
-                "2": "it's not cool",
-                "3": "I'm the dev and can't answer"
-            },
-            "responses": {
-                "U88LK3JN9": "1"
-            },
-            "published": true,
-            "justPublished": false,
-            "results": {}
-        }
-    ]
+    "polls": []
 }
