@@ -49,6 +49,7 @@ class Question:
         for char in removeChars:
             answer = answer.replace(char, "")
 
+        answer = answer.strip()
         return answer
 
     #This is just for determining answer correctness
