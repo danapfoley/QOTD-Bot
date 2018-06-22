@@ -41,7 +41,7 @@ class Question:
         answer = answer.lower().strip()
         words = answer.split(' ')
         removeWords = ["a","an","the","and"]
-        removeChars = ["'", "’", "-", ",", ".", "?", "!", "\"", "/", "[", "]", "(", ")", "`", "~"]
+        removeChars = "'’-,.?!\"/[](){}`~:;"
 
         strippedWords = [word for word in words if word not in removeWords]
         answer = ' '.join(strippedWords).strip()
