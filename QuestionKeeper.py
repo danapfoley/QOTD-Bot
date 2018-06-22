@@ -78,6 +78,10 @@ class Question:
         else:
             return False
 
+    def setQuestionText(self, newQuestionText: str) -> bool:
+        self.questionText = newQuestionText
+        return True
+
     def addUserWhoAnswered(self, userID: str) -> bool:
         if userID in self.answeredBy:
             return False
@@ -230,6 +234,16 @@ class QuestionKeeper:
         q = self.getUserQuestionByID(qID, userID)
 
         if q and q.removeAnswer(existingAnswer):
+            self.writeQuestionsToFile()
+            return True
+        else:
+            return False
+
+    def setQuestionText(self, userID: str, qID: str, newQuestionText: str) -> bool:
+        qID, category = splitCategory(qID)
+
+        q = self.getUserQuestionByID(qID, userID)
+        if q and q.setQuestionText(newQuestionText):
             self.writeQuestionsToFile()
             return True
         else:

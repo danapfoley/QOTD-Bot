@@ -261,6 +261,46 @@ def removeAnswer(channel, userID, argsString, timestamp):
 
     slackClient.say(channel, "Okay, I removed the answer \"" + existingAnswer + "\" from your question " + identifier)
 
+def editQuestionText(channel, userID, argsString, timestamp):
+    """
+    Set the text of a question to the new input specified
+    """
+    argsString = argsString.replace("“", "\"").replace("”", "\"")
+
+    if argsString == "":
+        needsMoreArgs(channel)
+        return
+
+    category = ""
+    if argsString[0] == "\"":
+        secondQuoteIdx = argsString.find("\"", 1)
+        if secondQuoteIdx != -1:
+            category = argsString[0:secondQuoteIdx]
+            argsString = argsString[secondQuoteIdx:]
+
+    args = argsString.split(' ', 1)
+
+    identifier = (category + args[0]) if len(args) > 0 else ""
+
+    if len(args) < 2:
+        needsMoreArgs(channel)
+        return
+
+    newQuestionText = args[1].strip()  # no longer holding identifier
+
+    if " : " in newQuestionText:
+        response = "\nIt looks like you're trying to add an answer to your question text. " + \
+                   "This command is only for editing question text. " + \
+                   "Please try again without \" : \" in your new text"
+        slackClient.say(channel, response)
+        return
+
+    if not questionKeeper.setQuestionText(userID, identifier, newQuestionText):
+        slackClient.say(channel, "I couldn't find a question of yours with that ID.\n")
+        return
+
+    slackClient.say(channel, "Okay, that question's text is now \"" + newQuestionText + "\"")
+
 def questions(channel, userID, argsString, timestamp):
     """
     List all currently active questions.
@@ -813,6 +853,13 @@ class CommandKeeper:
                 category="Questions and Answers",
                 helpText="`remove-answer [identifier] [existing answer]` - removes an answer option from a question. Must be matched _exactly_ to work",
                 privateOnly=True
+            ),
+
+            Command(
+                aliases=["edit", "edit-text", "edit-question-text"],
+                func = editQuestionText,
+                category = "Questions and Answers",
+                helpText = "`edit [identifier] [new question text]` - sets the text of an existing question to the specified input. Does not change answers"
             ),
 
             Command(
