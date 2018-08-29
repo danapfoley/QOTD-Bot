@@ -18,6 +18,8 @@ pollKeeper = None
 #Add more responses here to be randomly picked
 POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
 
+def chunkifyText(string: str, maxChunkSize: int) -> List[str]:
+    return [string[i:i + maxChunkSize] for i in range(0, len(string), maxChunkSize)]
 
 def getNameByID(userID):
     # All Slack user IDs start with "U" or "W", by convention
@@ -800,16 +802,17 @@ def refreshUserList(channel, userID, argsString, timestamp):
 def backupData(channel, userID, argsString, timestamp):
     questionKeeperData = questionKeeper.backUpData()
     backedUpQuestions = questionKeeperData["questions"]
-    backedUpOldQuestions = questionKeeperData["old-questions"]
+    backedUpOldQuestions = json.dumps(json.loads(questionKeeperData["old-questions"]), separators=(",", ":"))
+
+    oldQuestionTextChunks = chunkifyText(backedUpOldQuestions, 20000)
 
     scoreKeeperData = scoreKeeper.backUpData()
 
-    response = "Scores:\n\n\n" + scoreKeeperData + \
-               "\n\n\nQuestions:\n\n\n" + backedUpQuestions + \
-               "\n\n\nOld Questions:\n\n\n" + backedUpOldQuestions
-
-    slackClient.say(channel, response)
-
+    slackClient.say(channel, "Scores:\n\n\n" + scoreKeeperData)
+    slackClient.say(channel, "Questions:\n\n\n" + backedUpQuestions)
+    slackClient.say(channel, "Old Questions:\n\n\n")
+    for chunk in oldQuestionTextChunks:
+        slackClient.say(channel, chunk)
 
 class Command:
     def __init__(self, aliases, func, category = "", helpText = "", publicOnly = False, privateOnly = False, devOnly = False):
