@@ -797,6 +797,19 @@ def refreshUserList(channel, userID, argsString, timestamp):
 
     shutil.move(tempfile.name, USER_LIST_FILE)
 
+def backupData(channel, userID, argsString, timestamp):
+    questionKeeperData = questionKeeper.backUpData()
+    backedUpQuestions = questionKeeperData["questions"]
+    backedUpOldQuestions = questionKeeperData["old-questions"]
+
+    scoreKeeperData = scoreKeeper.backUpData()
+
+    response = "Scores:\n\n\n" + scoreKeeperData + \
+               "\n\n\nQuestions:\n\n\n" + backedUpQuestions + \
+               "\n\n\nOld Questions:\n\n\n" + backedUpOldQuestions
+
+    slackClient.say(channel, response)
+
 
 class Command:
     def __init__(self, aliases, func, category = "", helpText = "", publicOnly = False, privateOnly = False, devOnly = False):
@@ -1000,6 +1013,12 @@ class CommandKeeper:
                 func = respondToPoll,
                 category = "Polls",
                 helpText = "`vote [identifier] [option-number]` - votes on a poll. Use option IDs, not the option's text"
+            ),
+
+            Command(
+                aliases= ["backup-data"],
+                func = backupData,
+                devOnly = True
             )
         ]
 

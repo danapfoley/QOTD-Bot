@@ -195,9 +195,15 @@ class ScoreKeeper:
         self.updateFileWithData()
 
     def getDataFromFile(self):
-        file = open(SCORES_FILE_NAME,"r")
+        file = open(SCORES_FILE_NAME, "r")
         self.data = list(csv.reader(file))
         file.close()
+
+    def backUpData(self):
+        file = open(SCORES_FILE_NAME, "r")
+        scores = file.read()
+        file.close()
+        return scores
 
     def announceMontlyWinners(self, monthName: str):
         scoresList = []

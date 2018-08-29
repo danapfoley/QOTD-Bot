@@ -151,6 +151,20 @@ class QuestionKeeper:
                 q.guesses = qJson["guesses"]
 
                 self.questionList.append(q)
+
+    def backUpData(self):
+        data = {}
+
+        file = open(QUESTIONS_FILE_NAME)
+        data["questions"] = file.read()
+        file.close()
+
+        file = open(OLD_QUESTIONS_FILE_NAME)
+        data["old-questions"] = file.read()
+        file.close()
+
+        return data
+
             
     #This is run every time a change occurs to the questionsList data (adding, removing, publishing, guesses being made, etc).
     #   If the bot crashes at any point, we shouldn't lose too much history.
