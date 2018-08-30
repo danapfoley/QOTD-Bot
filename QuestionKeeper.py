@@ -21,7 +21,8 @@ def split_category(q_id: str) -> Tuple[str, str]:
 
 
 class Question:
-    def __init__(self, user_id, q_id, question_text, correct_answers=None, category=""):
+    def __init__(self, user_id: str, q_id: str, question_text: str,
+                 correct_answers: List[str]=None, category: str =""):
         if correct_answers is None:
             correct_answers = []
         self.user_id: str = user_id
@@ -158,7 +159,7 @@ class QuestionKeeper:
                 self.question_list.append(q)
 
     @staticmethod
-    def back_up_data():
+    def back_up_data() -> Dict[str, str]:
         data = {}
 
         file = open(QUESTIONS_FILE_NAME)
@@ -206,7 +207,7 @@ class QuestionKeeper:
 
         shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
 
-    def add_question(self, user_id: str, q_id: str, question_text: str, correct_answers=None) -> bool:
+    def add_question(self, user_id: str, q_id: str, question_text: str, correct_answers: List[str]=None) -> bool:
         if correct_answers is None:
             correct_answers = []
         q_id, category = split_category(q_id)

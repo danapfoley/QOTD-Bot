@@ -20,7 +20,7 @@ poll_keeper = None
 POINT_RESPONSES = ["Correct! I'll give you a point", ":thumbsup:", "Correct! :fast_parrot:"]
 
 
-def get_name_by_id(user_id):
+def get_name_by_id(user_id: str) -> str:
     # All Slack user IDs start with "U" or "W", by convention
     # So this is an easy check for invalid names
     if not (user_id.startswith('U') or user_id.startswith('W')):
@@ -37,11 +37,11 @@ def get_name_by_id(user_id):
     return slack_client.get_name_by_id(user_id)
 
 
-def needs_more_args(channel):
+def needs_more_args(channel: str):
     slack_client.say(channel, "This command needs more arguments! Type \"(command) help\" for usage")
 
 
-def scores(channel, user_id, args_string, timestamp):
+def scores(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Print a list of today's scores, and running monthly scores
     Ranked by number of points
@@ -68,7 +68,7 @@ def scores(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def scores_unranked(channel, user_id, args_string, timestamp):
+def scores_unranked(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Print a list of today's scores, and running monthly scores
     Sorted alphabetically
@@ -80,7 +80,7 @@ def scores_unranked(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def question(channel, user_id, args_string, timestamp):
+def question(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Add or modify a new question
     """
@@ -193,7 +193,7 @@ def question(channel, user_id, args_string, timestamp):
         slack_client.say(channel, response)
 
 
-def add_answer(channel, user_id, args_string, timestamp):
+def add_answer(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Add a possible answer to an existing question
     """
@@ -241,7 +241,7 @@ def add_answer(channel, user_id, args_string, timestamp):
         slack_client.say(channel, "Okay, I added the answer \"" + args[0] + "\" to your question " + identifier)
 
 
-def remove_answer(channel, user_id, args_string, timestamp):
+def remove_answer(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Remove an answer option from an existing question. Must match the existing answer string exactly
     """
@@ -283,7 +283,7 @@ def remove_answer(channel, user_id, args_string, timestamp):
     slack_client.say(channel, "Okay, I removed the answer \"" + existing_answer + "\" from your question " + identifier)
 
 
-def edit_question_text(channel, user_id, args_string, timestamp):
+def edit_question_text(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Set the text of a question to the new input specified
     """
@@ -326,7 +326,7 @@ def edit_question_text(channel, user_id, args_string, timestamp):
     slack_client.say(channel, "Okay, that question's text is now \"" + new_question_text + "\"")
 
 
-def questions(channel, user_id, args_string, timestamp):
+def questions(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     List all currently active questions.
     If used in a private channel, the list will include bullet points next to unanswered questions
@@ -346,7 +346,7 @@ def questions(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def questions_remaining(channel, user_id, args_string, timestamp):
+def questions_remaining(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Similar to `questions`, but any question that has already been answered,
         guessed the max number of times, or was submitted by you, is omitted.
@@ -364,7 +364,7 @@ def questions_remaining(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def remove_question(channel, user_id, args_string, timestamp):
+def remove_question(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Remove an question, published or not.
     Questions that are removed and not expired do not get saved in question history
@@ -379,7 +379,7 @@ def remove_question(channel, user_id, args_string, timestamp):
     question(channel, user_id, identifier + " remove", timestamp)
 
 
-def my_questions(channel, user_id, args_string, timestamp):
+def my_questions(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     List all questions you've submitted, published or not.
     Includes answers, and thus must be used in a private channel
@@ -396,7 +396,7 @@ def my_questions(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def publish(channel, user_id, args_string, timestamp):
+def publish(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Publish all questions by a user.
     If question ID given as argument, publish only that question
@@ -425,7 +425,7 @@ def publish(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def answer(channel, user_id, args_string, timestamp):
+def answer(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Guess the answer to a question.
     Checks for correctness, number of guesses,
@@ -496,7 +496,7 @@ def answer(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def approve(channel, user_id, args_string, timestamp):
+def approve(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Award a point for a user on a question of yours.
     In contrast to add-point, this will announce the point in the usual channel,
@@ -539,7 +539,7 @@ def approve(channel, user_id, args_string, timestamp):
     slack_client.react(channel, timestamp, "thumbsup")
 
 
-def old_questions(channel, user_id, args_string, timestamp):
+def old_questions(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     List all questions that were expired less than 24 hours ago.
     Does not include questions that were removed
@@ -555,7 +555,7 @@ def old_questions(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def hello(channel, user_id, args_string, timestamp):
+def hello(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Say hi and some basic ID info
     """
@@ -568,7 +568,7 @@ def hello(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def change_my_name(channel, user_id, args_string, timestamp):
+def change_my_name(channel: str, user_id: str, args_string: str, timestamp: str):
     ignore_unused_args(timestamp)
 
     new_name = args_string
@@ -584,7 +584,7 @@ def change_my_name(channel, user_id, args_string, timestamp):
         slack_client.say(channel, "Okay, I set your name to " + new_name)
 
 
-def add_points(channel, user_id, args_string, timestamp):
+def add_points(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Add a number of points for a mentioned user
     """
@@ -625,7 +625,7 @@ def add_points(channel, user_id, args_string, timestamp):
     slack_client.say(DEPLOY_CHANNEL, response)
 
 
-def expire_old_questions(channel, user_id, args_string, timestamp):
+def expire_old_questions(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Expire all questions of yours older than 18 hours.
     Posts the expired questions, their answers,
@@ -654,7 +654,7 @@ def expire_old_questions(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def poll(channel, user_id, args_string, timestamp):
+def poll(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Create or modify a poll, with poll text and options separated by " : "
     """
@@ -716,7 +716,7 @@ def poll(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def polls(channel, user_id, args_string, timestamp):
+def polls(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     List all currently active polls
     """
@@ -732,7 +732,7 @@ def polls(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def publish_poll(channel, user_id, args_string, timestamp):
+def publish_poll(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Publish all of your polls
     If ID given, publish only the poll with that ID
@@ -761,7 +761,7 @@ def publish_poll(channel, user_id, args_string, timestamp):
     slack_client.say(channel, response)
 
 
-def respond_to_poll(channel, user_id, args_string, timestamp):
+def respond_to_poll(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Vote on a poll.
     Identifier must match poll ID, and the vote must match the corresponding number of the option
@@ -789,7 +789,7 @@ def respond_to_poll(channel, user_id, args_string, timestamp):
     slack_client.react(channel, timestamp, "thumbsup")
 
 
-def tell(channel, user_id, args_string, timestamp):
+def tell(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Make the bot talk to another user, in the deploy channel.
     The user who says the command is not hidden
@@ -815,7 +815,7 @@ def tell(channel, user_id, args_string, timestamp):
                          user_id) + " says " + what_to_say)
 
 
-def dev_tell(channel, user_id, args_string, timestamp):
+def dev_tell(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Make the bot speak on behalf of the dev, in a direct chat with a user
     """
@@ -840,7 +840,7 @@ def dev_tell(channel, user_id, args_string, timestamp):
     slack_client.say(user_channel, what_to_say)
 
 
-def announce(channel, user_id, args_string, timestamp):
+def announce(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Make the bot speak on behalf of the dev, to the deploy channel
     """
@@ -849,7 +849,7 @@ def announce(channel, user_id, args_string, timestamp):
     slack_client.say(DEPLOY_CHANNEL, args_string)
 
 
-def refresh_user_list(channel, user_id, args_string, timestamp):
+def refresh_user_list(channel: str, user_id: str, args_string: str, timestamp: str):
     """
     Update the user list that caches user name info
     """
@@ -870,7 +870,7 @@ def refresh_user_list(channel, user_id, args_string, timestamp):
     shutil.move(tempfile.name, USER_LIST_FILE)
 
 
-def backup_data(channel, user_id, args_string, timestamp):
+def backup_data(channel: str, user_id: str, args_string: str, timestamp: str):
     ignore_unused_args(user_id, args_string, timestamp)
 
     question_keeper_data = question_keeper.back_up_data()
@@ -889,20 +889,21 @@ def backup_data(channel, user_id, args_string, timestamp):
 
 
 class Command:
-    def __init__(self, aliases, func, category="", help_text="", public_only=False, private_only=False, dev_only=False):
-        self.aliases = aliases
-        self.func = func
-        self.category = category
-        self.help_text = help_text
-        self.public_only = public_only
-        self.private_only = private_only
-        self.dev_only = dev_only
+    def __init__(self, aliases: List[str], func: Callable, category: str="", help_text: str="",
+                 public_only: bool=False, private_only: bool=False, dev_only: bool=False):
+        self.aliases: List[str] = aliases
+        self.func: function = func
+        self.category: str = category
+        self.help_text: str = help_text
+        self.public_only: bool = public_only
+        self.private_only: bool = private_only
+        self.dev_only: bool = dev_only
 
 
 class CommandKeeper:
     def __init__(self):
         self.help_text_dict = {"Misc": []}
-        self.commands_list = [
+        self.commands_list: List[Command] = [
             Command(
                 aliases=["points", "score", "scores"],
                 func=scores,
@@ -1122,7 +1123,7 @@ class CommandKeeper:
         for category in self.help_text_dict.keys():
             self.help_text_dict[category].sort()
 
-    def help(self, channel):
+    def help(self, channel: str):
         response = ""
 
         for category in self.help_text_dict:
@@ -1135,7 +1136,7 @@ class CommandKeeper:
 
         slack_client.say(channel, "Here's a list of commands I know:\n\n" + response)
 
-    def get_command_by_alias(self, alias):
+    def get_command_by_alias(self, alias: str) -> Optional[Command]:
         for cmd in self.commands_list:
             if alias in cmd.aliases:
                 return cmd

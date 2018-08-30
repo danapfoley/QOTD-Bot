@@ -3,13 +3,13 @@ import json
 import os
 import re
 from slackclient import SlackClient
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 
-# starterbot's user ID in Slack: value is assigned after the bot starts up
+# QOTD Bot's user ID in Slack: value is assigned after the bot starts up
 bot_id = "UNKNOWN"
 
 # constants
@@ -39,15 +39,15 @@ WELCOME_MESSAGE = "I'm QOTD Bot, and I help with the the question of the day cha
 class WellBehavedSlackClient(SlackClient):
     """Slack client with rate limit"""
 
-    def __init__(self, token, proxies=None, ratelimit=1.0):
+    def __init__(self, token, proxies=None, rate_limit=1.0):
         super().__init__(token, proxies)
-        self.ratelimit = ratelimit
-        self.last_invoked = time.time() - ratelimit
+        self.rate_limit = rate_limit
+        self.last_invoked = time.time() - rate_limit
 
-    def api_call(self, method, timeout=None, **kwargs):
+    def api_call(self, method: str, timeout=None, **kwargs):
         while True:
             now = time.time()
-            if (now - self.last_invoked) >= self.ratelimit:
+            if (now - self.last_invoked) >= self.rate_limit:
                 try:
                     result = super().api_call(method, timeout=timeout, **kwargs)
                 except BaseException as e:
@@ -58,10 +58,10 @@ class WellBehavedSlackClient(SlackClient):
                 self.last_invoked = time.time()
                 return result
             else:
-                time.sleep(self.ratelimit - (now - self.last_invoked))
+                time.sleep(self.rate_limit - (now - self.last_invoked))
 
     # Use this to post a message to a channel
-    def say(self, channel, response):
+    def say(self, channel: str, response: str):
         if channel == "" or channel == "DEPLOY_CHANNEL":
             channel = DEPLOY_CHANNEL
         try:
@@ -78,7 +78,7 @@ class WellBehavedSlackClient(SlackClient):
     # Use this to add an emoji reaction to a message.
     # The timestamp can easily come from the command message, if that's what you're reacting to.
     # Reacting to older messages requires more effort to hang on to the timestamp, because we can't retrieve it later.
-    def react(self, channel, timestamp, emoji):
+    def react(self, channel: str, timestamp: str, emoji: str):
         try:
             self.api_call(
                 "reactions.add",

@@ -6,7 +6,8 @@ POLLS_FILE_NAME = "polls.json"
 
 
 class PollQuestion:
-    def __init__(self, user_id, p_id, poll_question_text, options=None, responses=None):
+    def __init__(self, user_id: str, p_id: str, poll_question_text: str,
+                 options: Dict[str, str]=None, responses: Dict[str, str]=None):
         if responses is None:
             responses = {}
         if options is None:
@@ -21,7 +22,7 @@ class PollQuestion:
         self.results: Dict[str, int] = {}
 
     @staticmethod
-    def clean_up_response(response: str):
+    def clean_up_response(response: str) -> str:
         response = response.lower().strip()
         remove_chars = ["'", "’", "-"]
 
@@ -75,7 +76,7 @@ class PollQuestion:
 
 class PollKeeper:
     def __init__(self):
-        self.poll_question_list = []
+        self.poll_question_list: List[PollQuestion] = []
         self.load_polls_from_file()
 
     def load_polls_from_file(self):
@@ -100,7 +101,8 @@ class PollKeeper:
 
         shutil.move(tempfile.name, POLLS_FILE_NAME)
 
-    def add_poll(self, user_id: str, p_id: str, poll_question_text: str, options=None, responses=None) -> bool:
+    def add_poll(self, user_id: str, p_id: str, poll_question_text: str,
+                 options: Dict[str, str]=None, responses: Dict[str, str]=None) -> bool:
 
         if options is None:
             options = {}
@@ -134,7 +136,7 @@ class PollKeeper:
 
         return None
 
-    def get_submitter_by_pid(self, p_id):
+    def get_submitter_by_pid(self, p_id: str) -> Optional[str]:
         p = self.get_poll_by_id(p_id)
         if p:
             return p.user_id
@@ -181,7 +183,6 @@ class PollKeeper:
                     polls_expired.append(p)
 
         self.poll_question_list: List[PollQuestion] = [p for p in self.poll_question_list if p not in polls_expired]
-        polls_expired = [p.pretty_print() for p in polls_expired]
         self.write_polls_to_file()
 
         return polls_expired
