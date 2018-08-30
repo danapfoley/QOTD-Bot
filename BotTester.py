@@ -1,70 +1,86 @@
-import QOTDBot as qb
+import QOTDBot as Qb
 from typing import List
 
+
 class FakeSlackClient:
-    def say(self, channel: str, response: str):
+
+    @staticmethod
+    def say(channel: str, response: str):
+        Qb.ignore_unused_args(channel)
         print(response)
 
-    def react(self, channel: str, timestamp: str, emoji: str):
+    @staticmethod
+    def react(channel: str, timestamp: str, emoji: str):
+        Qb.ignore_unused_args(channel, timestamp)
         print(":" + emoji + ":")
 
-    def devLog(self, response: str):
+    @staticmethod
+    def dev_log(response: str):
         print(response)
 
-    def getDirectChannel(self, userID: str):
-        return qb.DEPLOY_CHANNEL
+    @staticmethod
+    def get_direct_channel(user_id: str):
+        Qb.ignore_unused_args(user_id)
+        return Qb.DEPLOY_CHANNEL
 
-    def getNameByID(self, userID: str):
+    @staticmethod
+    def get_name_by_id(user_id: str):
+        Qb.ignore_unused_args(user_id)
         return "Dana Foley"
 
-    def parseBotCommands(self, events: List[dict]):
+    @staticmethod
+    def parse_bot_commands(events: List[dict]):
         for event in events:
-            if event["type"] == "member_joined_channel" and event["channel"] == qb.QOTD_CHANNEL:
-                self.say(qb.QOTD_CHANNEL, "Welcome " + fakeGetReferenceByID(event["user"]) + "! " + qb.WELCOME_MESSAGE)
+            if event["type"] == "member_joined_channel" and event["channel"] == Qb.QOTD_CHANNEL:
+                FakeSlackClient.say(Qb.QOTD_CHANNEL,
+                                    "Welcome " + fake_get_reference_by_id(event["user"]) + "! " + Qb.WELCOME_MESSAGE)
 
 
-def fakeLog(response: str):
+def fake_log(response: str):
+    Qb.ignore_unused_args(response)
     pass
 
-def fakeGetReferenceByID(userID: str):
+
+def fake_get_reference_by_id(user_id: str):
+    Qb.ignore_unused_args(user_id)
     return "@dana.foley"
 
-def fakeGetIDFromReference(userIDReference: str):
-    return qb.DEVELOPER_ID
+
+def fake_get_id_from_reference(user_id_reference: str):
+    Qb.ignore_unused_args(user_id_reference)
+    return Qb.DEVELOPER_ID
 
 
 if __name__ == "__main__":
-    #Overwrite production-based functions
-    qb.log = fakeLog
-    qb.getReferenceByID = fakeGetReferenceByID
-    qb.getIDFromReference = fakeGetIDFromReference
+    # Overwrite production-based functions
+    Qb.log = fake_log
+    Qb.get_reference_by_id = fake_get_reference_by_id
+    Qb.get_id_from_reference = fake_get_id_from_reference
 
-    qb.slackClient = FakeSlackClient()
+    Qb.slack_client = FakeSlackClient()
 
-    qb.questionKeeper = qb.QuestionKeeper()
-    qb.scoreKeeper = qb.ScoreKeeper(qb.slackClient)
-    qb.commandKeeper = qb.CommandKeeper()
-    qb.pollKeeper = qb.PollKeeper()
+    Qb.question_keeper = Qb.QuestionKeeper()
+    Qb.score_keeper = Qb.ScoreKeeper(Qb.slack_client)
+    Qb.command_keeper = Qb.CommandKeeper()
+    Qb.poll_keeper = Qb.PollKeeper()
 
-    #Remove command restrictions
-    for c in qb.commandKeeper.commandsList:
-        c.publicOnly = False
-        c.privateOnly = False
+    # Remove command restrictions
+    for c in Qb.command_keeper.commands_list:
+        c.public_only = False
+        c.private_only = False
 
     print("QOTD Bot pretending to be connected and running!")
 
-    inputStr = ""
-    qb.slackClient.parseBotCommands([{
+    input_str = ""
+    Qb.slack_client.parse_bot_commands([{
         "type": "member_joined_channel",
         "user": "W06GH7XHN",
-        "channel": qb.QOTD_CHANNEL,
+        "channel": Qb.QOTD_CHANNEL,
         "channel_type": "G",
         "team": "T8MPF7EHL"
     }])
-    while inputStr != "exit":
-        inputStr = input("> ")
-        event = {"user" : qb.DEVELOPER_ID, "channel" : qb.DEVELOPER_CHANNEL, "text" : inputStr}
+    while input_str != "exit":
+        input_str = input("> ")
+        event_to_handle = {"user": Qb.DEVELOPER_ID, "channel": Qb.DEVELOPER_CHANNEL, "text": input_str}
 
-        qb.commandKeeper.handle_event(event)
-
-
+        Qb.command_keeper.handle_event(event_to_handle)

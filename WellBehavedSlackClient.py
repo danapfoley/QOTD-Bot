@@ -1,9 +1,9 @@
-from time import time, sleep
+import time
 import json
 import os
 import re
 from slackclient import SlackClient
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 # instantiate Slack client
 SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
@@ -13,14 +13,14 @@ SLACK_TOKEN = os.environ.get('SLACK_TOKEN')
 bot_id = "UNKNOWN"
 
 # constants
-RTM_READ_DELAY = 1 # 1 second delay between reading from RTM
-MENTION_REGEX = "^<@(|[WU].+?)>(.*)" #For parsing mentions of @QOTD_Bot at the beginning of a message
+RTM_READ_DELAY = 1  # 1 second delay between reading from RTM
+MENTION_REGEX = "^<@(|[WU].+?)>(.*)"  # For parsing mentions of @QOTD_Bot at the beginning of a message
 
-QOTD_CHANNEL = "C61L4NENS" #Where new info about questions and polls gets announced
-POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM" #Where points get announced
+QOTD_CHANNEL = "C61L4NENS"  # Where new info about questions and polls gets announced
+POINT_ANNOUNCEMENT_CHANNEL = "CA7DKN1DM"  # Where points get announced
 
-DEVELOPER_ID = "U88LK3JN9" #Dana
-DEVELOPER_CHANNEL = "D9C0FSD0R" #Direct message channel with Dana
+DEVELOPER_ID = "U88LK3JN9"  # Dana
+DEVELOPER_CHANNEL = "D9C0FSD0R"  # Direct message channel with Dana
 
 DEPLOY_CHANNEL = QOTD_CHANNEL
 
@@ -29,34 +29,36 @@ FILE_LOGGING = False
 
 USER_LIST_FILE = "userList.json"
 
-WELCOME_MESSAGE = "I'm QOTD Bot, and I help with the the question of the day channel. I keep track of user-submitted " +\
-                  "questions, check answers, and keep score. You can talk to me by starting a private chat with @QOTDBot " +\
-                  "or putting \"@QOTDBot\" at the beginning of your message in this channel to refer to me. For example, " +\
-                  "say \"@QOTDBot help\" to see a list of commands I know. Feel free to speak up if you have any questions!"
+WELCOME_MESSAGE = "I'm QOTD Bot, and I help with the the question of the day channel. I keep track of user-submitted " \
+                  "questions, check answers, and keep score. You can talk to me by starting a private chat with " \
+                  "@QOTDBot or putting \"@QOTDBot\" at the beginning of your message in this channel to refer to me. " \
+                  "For example, say \"@QOTDBot help\" to see a list of commands I know. Feel free to speak up if you " \
+                  "have any questions! "
+
 
 class WellBehavedSlackClient(SlackClient):
-    '''Slack client with rate limit'''
+    """Slack client with rate limit"""
 
     def __init__(self, token, proxies=None, ratelimit=1.0):
         super().__init__(token, proxies)
         self.ratelimit = ratelimit
-        self.last_invoked = time() - ratelimit
+        self.last_invoked = time.time() - ratelimit
 
     def api_call(self, method, timeout=None, **kwargs):
         while True:
-            now = time()
+            now = time.time()
             if (now - self.last_invoked) >= self.ratelimit:
                 try:
                     result = super().api_call(method, timeout=timeout, **kwargs)
                 except BaseException as e:
                     print("Connection Error. Retrying in 3 seconds...")
                     print("Exception details: " + str(e))
-                    sleep(3)
+                    time.sleep(3)
                     continue
-                self.last_invoked = time()
+                self.last_invoked = time.time()
                 return result
             else:
-                sleep(self.ratelimit - (now - self.last_invoked))
+                time.sleep(self.ratelimit - (now - self.last_invoked))
 
     # Use this to post a message to a channel
     def say(self, channel, response):
@@ -91,10 +93,10 @@ class WellBehavedSlackClient(SlackClient):
     # Send an action log to the chosen dev.
     # This is currently used to send exception details + stacktrace directly to the dev when an error is caught
     #   for ~efficient development~
-    def devLog(self, response):
+    def dev_log(self, response):
         global DEVELOPER_CHANNEL
         if DEVELOPER_CHANNEL is None or DEVELOPER_CHANNEL == "":
-            DEVELOPER_CHANNEL = self.getDirectChannel(DEVELOPER_ID)
+            DEVELOPER_CHANNEL = self.get_direct_channel(DEVELOPER_ID)
 
         self.say(DEVELOPER_CHANNEL, response)
 
@@ -102,50 +104,50 @@ class WellBehavedSlackClient(SlackClient):
     #   and the command in question wasn't sent in that user's private channel
     #   we can use an API call to open a conversation / retrieve a channel ID.
     # In the future we should cache this info to speed up response time
-    def getDirectChannel(self, userID: str) -> str:
-        dmChannel = self.api_call(
+    def get_direct_channel(self, user_id: str) -> str:
+        dm_channel = self.api_call(
             "conversations.open",
-            users=userID
+            users=user_id
         )
-        return dmChannel["channel"]["id"]
+        return dm_channel["channel"]["id"]
 
-    def getNameByID(self, userID: str) -> str:
+    def get_name_by_id(self, user_id: str) -> str:
         # All Slack user IDs start with "U", by convention
         # So this is an easy check for invalid names
-        if not userID.startswith('U'):
-            return userID
+        if not user_id.startswith('U'):
+            return user_id
 
         # Our top priority is to get the name from the score sheet,
         # since we can change that to a person's preference if they don't want to use their display name
-        # nameFromScoreSheet = scoreKeeper.getUserNameInScoreSheet(userID)
+        # nameFromScoreSheet = scoreKeeper.getUserNameInScoreSheet(user_id)
         # if nameFromScoreSheet:
         #     userName = nameFromScoreSheet
         #     return userName
 
         # Next highest priority is to use the bulk list of all users we can manually pull from Slack
         with open(USER_LIST_FILE) as usersFile:
-            usersDict = json.load(usersFile)
-        if userID in usersDict:
-            userName = usersDict[userID]
-            return userName
+            users_dict = json.load(usersFile)
+        if user_id in users_dict:
+            user_name = users_dict[user_id]
+            return user_name
 
         # Last ditch effort is to do an api call, which we really want to avoid
-        attemptedNameJson = self.api_call(
+        attempted_name_json = self.api_call(
             "users.info",
             token=SLACK_BOT_TOKEN,
-            user=userID
+            user=user_id
         )
-        if attemptedNameJson["ok"]:
-            if attemptedNameJson["user"]["profile"]["display_name"] != "":
-                userName = attemptedNameJson["user"]["profile"]["display_name"]
+        if attempted_name_json["ok"]:
+            if attempted_name_json["user"]["profile"]["display_name"] != "":
+                user_name = attempted_name_json["user"]["profile"]["display_name"]
             else:
-                userName = attemptedNameJson["user"]["profile"]["real_name"]
+                user_name = attempted_name_json["user"]["profile"]["real_name"]
         else:
-            userName = userID
+            user_name = user_id
 
-        return userName
+        return user_name
 
-    def parseBotCommands(self, slack_events: List[dict]) -> Optional[dict]:
+    def parse_bot_commands(self, slack_events: List[dict]) -> Optional[dict]:
         """
         Parses a list of events coming from the Slack RTM API to find bot commands.
         If a bot command is found, this function returns a tuple of command and channel.
@@ -160,15 +162,16 @@ class WellBehavedSlackClient(SlackClient):
                 time.sleep(5)
                 return None
             if event["type"] == "member_joined_channel" and event["channel"] == QOTD_CHANNEL:
-                self.say(QOTD_CHANNEL, "Welcome " + getReferenceByID(event["user"]) + "! " + WELCOME_MESSAGE)
-            if event["type"] == "message" and not "subtype" in event:
-                processedEvent = self.parseDirectMention(event)
-                if processedEvent:
-                    log(self.getNameByID(event["user"]) + " says: " + event["text"] + "\n")
-                    return processedEvent
+                self.say(QOTD_CHANNEL, "Welcome " + get_reference_by_id(event["user"]) + "! " + WELCOME_MESSAGE)
+            if event["type"] == "message" and "subtype" not in event:
+                processed_event = self.parse_direct_mention(event)
+                if processed_event:
+                    log(self.get_name_by_id(event["user"]) + " says: " + event["text"] + "\n")
+                    return processed_event
         return None
 
-    def parseDirectMention(self, event: dict) -> Optional[dict]:
+    @staticmethod
+    def parse_direct_mention(event: dict) -> Optional[dict]:
         message_text = event["text"]
         """
         Finds a direct mention (a mention that is at the beginning) in message text
@@ -182,15 +185,16 @@ class WellBehavedSlackClient(SlackClient):
             # return (matches.group(1), matches.group(2).strip())
             return event
         # If private message (no mention necessary)
-        elif isEventPrivate(event):
+        elif is_event_private(event):
             # return (bot_id, message_text)
             return event
         else:
             return None
 
-    def setBotID(self, newBotID: str):
+    @staticmethod
+    def set_bot_id(new_bot_id: str):
         global bot_id
-        bot_id = newBotID
+        bot_id = new_bot_id
 
 
 # Just for keeping/printing a history of what was said.
@@ -203,39 +207,41 @@ def log(response: str):
         file.close()
     print(response)
 
+
 # References to users appear to begin with "@" in Slack, followed by a person's name
 # But behind the scenes, they're user IDs wrapped up in "<>" characters, e.g. "<@U1234ABCD>"
 # So if we want to reference a user when posting a message, we take their ID, and wrap it.
-def getReferenceByID(userID: str) -> str:
-    return "<@" + userID + ">"
+def get_reference_by_id(user_id: str) -> str:
+    return "<@" + user_id + ">"
+
 
 # Similarly, if we want to get an ID from a reference, we just strip the wrapping
-def getIDFromReference(userIDReference: str) -> str:
+def get_id_from_reference(user_id_reference: str) -> str:
     for char in "<>@":
-        userIDReference = userIDReference.replace(char, "")
-    userID = userIDReference.strip()
-    return userID
+        user_id_reference = user_id_reference.replace(char, "")
+    user_id = user_id_reference.strip()
+    return user_id
 
-def checkPublic(messageEvent: dict) -> str:
-    if not isEventPrivate(messageEvent):
+
+def check_public(message_event: dict) -> str:
+    if not is_event_private(message_event):
         return "You can't use this command in a public channel. Message me directly instead"
     else:
         return ""
 
-def checkPrivate(messageEvent: dict) -> str:
-    if isEventPrivate(messageEvent):
+
+def check_private(message_event: dict) -> str:
+    if is_event_private(message_event):
         return "You can't use this command in a private channel. Use the public channel instead"
     else:
         return ""
 
-def isChannelPrivate(channel: str) -> bool:
+
+def is_channel_private(channel: str) -> bool:
     """Checks if public slack channel"""
     return channel.startswith('D')
 
-def isEventPrivate(messageEvent: dict) -> bool:
+
+def is_event_private(message_event: dict) -> bool:
     """Checks if private slack channel"""
-    return messageEvent['channel'].startswith('D')
-
-
-
-
+    return message_event['channel'].startswith('D')

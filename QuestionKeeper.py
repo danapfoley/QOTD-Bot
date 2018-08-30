@@ -1,6 +1,5 @@
 import time
 import json
-from tempfile import NamedTemporaryFile
 import shutil
 from typing import List, Dict, Tuple, Optional
 
@@ -9,107 +8,112 @@ MAX_GUESSES = 3
 QUESTIONS_FILE_NAME = "questions.json"
 OLD_QUESTIONS_FILE_NAME = "questionsHistory.json"
 
-def splitCategory(qID: str) -> Tuple[str, str]:
-    #Splitting the category from qID.
-    #Current format is: "Category"qID
-    firstInst, lastInst = qID.find('"'), qID.rfind('"')
+
+def split_category(q_id: str) -> Tuple[str, str]:
+    # Splitting the category from qID.
+    # Current format is: "Category"qID
+    first_inst, last_inst = q_id.find('"'), q_id.rfind('"')
     category = ""
-    if qID.count('"') == 2 and firstInst == 0 and lastInst != (len(qID) - 1):
-        category = qID[1:lastInst]
-        qID = qID[lastInst+1:]
-    return qID, category
+    if q_id.count('"') == 2 and first_inst == 0 and last_inst != (len(q_id) - 1):
+        category = q_id[1:last_inst]
+        q_id = q_id[last_inst + 1:]
+    return q_id, category
 
 
 class Question:
-    def __init__(self, userID, qID, questionText, correctAnswers = [], category = ""):
-        self.userID: str = userID
-        self.qID: str = qID
-        self.questionText: str = questionText
-        self.correctAnswers: List[str] = correctAnswers
+    def __init__(self, user_id, q_id, question_text, correct_answers=None, category=""):
+        if correct_answers is None:
+            correct_answers = []
+        self.user_id: str = user_id
+        self.q_id: str = q_id
+        self.question_text: str = question_text
+        self.correct_answers: List[str] = correct_answers
         self.category: str = category
-        self.initTime: float = time.time()
-        self.publishTime: float = 0
-        self.expireTime: float = 0
+        self.init_time: float = time.time()
+        self.publish_time: float = 0
+        self.expire_time: float = 0
         self.published: bool = False
-        self.justPublished: bool = False
-        self.answeredBy: List[str] = []
+        self.just_published: bool = False
+        self.answered_by: List[str] = []
         self.guesses: Dict[str, int] = {}
 
-    #We've established rules for which words/characters shouldn't matter in answers.
-    #Here is where those get dealt with
-    def cleanUpAnswer(self, answer: str) -> str:
+    # We've established rules for which words/characters shouldn't matter in answers.
+    # Here is where those get dealt with
+    @staticmethod
+    def clean_up_answer(answer: str) -> str:
         answer = answer.lower().strip()
         words = answer.split(' ')
-        removeWords = ["a","an","the","and"]
-        removeChars = "'’-,.?!\"/[](){}`~:;"
+        remove_words = ["a", "an", "the", "and"]
+        remove_chars = "'’-,.?!\"/[](){}`~:;"
 
-        strippedWords = [word for word in words if word not in removeWords]
-        answer = ' '.join(strippedWords).strip()
+        stripped_words = [word for word in words if word not in remove_words]
+        answer = ' '.join(stripped_words).strip()
 
-        for char in removeChars:
+        for char in remove_chars:
             answer = answer.replace(char, "")
 
         answer = answer.strip()
         return answer
 
-    #This is just for determining answer correctness
-    #If we add a feature in the future for requiring a list of items to all be matched,
+    # This is just for determining answer correctness
+    # If we add a feature in the future for requiring a list of items to all be matched,
     #   here is where that should be added.
-    def validateAnswer(self, inputAnswer: str) -> bool:
-        for correctAnswer in self.correctAnswers:
-            match = self.cleanUpAnswer(correctAnswer) == self.cleanUpAnswer(inputAnswer)
+    def validate_answer(self, input_answer: str) -> bool:
+        for correct_answer in self.correct_answers:
+            match = self.clean_up_answer(correct_answer) == self.clean_up_answer(input_answer)
             if match:
                 return True
         return False
 
-    def checkAnswer(self, userID, inputAnswer: str) -> bool:
-        if self.validateAnswer(inputAnswer) and userID not in self.answeredBy:
-            self.answeredBy.append(userID)
+    def check_answer(self, user_id, input_answer: str) -> bool:
+        if self.validate_answer(input_answer) and user_id not in self.answered_by:
+            self.answered_by.append(user_id)
             return True
         return False
 
-    def addAnswer(self, newAnswer: str):
-        self.correctAnswers.append(newAnswer)
+    def add_answer(self, new_answer: str):
+        self.correct_answers.append(new_answer)
 
-    def removeAnswer(self, existingAnswer: str) -> bool:
-        if existingAnswer in self.correctAnswers:
-            self.correctAnswers.remove(existingAnswer)
+    def remove_answer(self, existing_answer: str) -> bool:
+        if existing_answer in self.correct_answers:
+            self.correct_answers.remove(existing_answer)
             return True
         else:
             return False
 
-    def setQuestionText(self, newQuestionText: str) -> bool:
-        self.questionText = newQuestionText
+    def set_question_text(self, new_question_text: str) -> bool:
+        self.question_text = new_question_text
         return True
 
-    def addUserWhoAnswered(self, userID: str) -> bool:
-        if userID in self.answeredBy:
+    def add_user_who_answered(self, user_id: str) -> bool:
+        if user_id in self.answered_by:
             return False
-        self.answeredBy.append(userID)
+        self.answered_by.append(user_id)
         return True
 
-    def timeToExpire(self) -> bool:
-        return self.published and (time.time() - self.publishTime) > 60 * 60 * 18  #18 hours
+    def time_to_expire(self) -> bool:
+        return self.published and (time.time() - self.publish_time) > 60 * 60 * 18  # 18 hours
 
-    #Display a question with its category and ID in a nicely formatted way
-    def prettyPrint(self) -> str:
+    # Display a question with its category and ID in a nicely formatted way
+    def pretty_print(self) -> str:
         output = "" if self.category == "" else (self.category + " ")
-        output = output + "(" + self.qID + "): " + self.questionText
+        output = output + "(" + self.q_id + "): " + self.question_text
         return output
 
-    def prettyPrintWithAnswer(self) -> str:
-        return self.prettyPrint() + " : " + (" : ".join(self.correctAnswers) if len(self.correctAnswers) > 0 else "(no answer given)")
+    def pretty_print_with_answer(self) -> str:
+        return self.pretty_print() + " : " + (
+            " : ".join(self.correct_answers) if len(self.correct_answers) > 0 else "(no answer given)")
 
-    def getAnsweredUsers(self) -> List[str]:
-        return self.answeredBy
+    def get_answered_users(self) -> List[str]:
+        return self.answered_by
 
-    def countAnswers(self) -> int:
-        return len(self.answeredBy)
-    
-    def countGuesses(self) -> int:
+    def count_answers(self) -> int:
+        return len(self.answered_by)
+
+    def count_guesses(self) -> int:
         return len(self.guesses)
 
-    #There's probably a better way to do this,
+    # There's probably a better way to do this,
     #   but to make sure that only the newly-published questions get displayed,
     #   we have a justPublished flag that is set when publish is called
     #   and unset when QuestionKeeper.firstTimeDisplay is called.
@@ -118,41 +122,43 @@ class Question:
             return False
         else:
             self.published = True
-            self.justPublished = True
-            self.publishTime = time.time()
+            self.just_published = True
+            self.publish_time = time.time()
             return True
+
 
 class QuestionKeeper:
     def __init__(self):
-        self.questionList: List[Question] = []
-        self.loadQuestionsFromFile()
+        self.question_list: List[Question] = []
+        self.load_questions_from_file()
 
-    #This only runs on startup to retrieve questions from the persistent file
-    def loadQuestionsFromFile(self):
+    # This only runs on startup to retrieve questions from the persistent file
+    def load_questions_from_file(self):
         try:
             file = open(QUESTIONS_FILE_NAME)
-            questionsJson = json.load(file)
-        except:
+        except IOError:
             # If not exists, create the file
-            questionsJson = {"questions" : []}
-            file = open(QUESTIONS_FILE_NAME,"w+")
-            json.dump(questionsJson, file, indent = 4)
+            questions_json = {"questions": []}
+            file = open(QUESTIONS_FILE_NAME, "w+")
+            json.dump(questions_json, file, indent=4)
         file.close()
 
-        with open(QUESTIONS_FILE_NAME) as qFile:
-            d = json.load(qFile)
-            for qJson in d["questions"]:
-                q = Question(qJson["userID"], qJson["qID"], qJson["questionText"], qJson["correctAnswers"], qJson["category"])
-                q.initTime = qJson["initTime"]
-                q.publishTime = qJson["publishTime"]
-                q.published = qJson["published"]
-                q.justPublished = qJson["justPublished"]
-                q.answeredBy = qJson["answeredBy"]
-                q.guesses = qJson["guesses"]
+        with open(QUESTIONS_FILE_NAME) as q_file:
+            d = json.load(q_file)
+            for q_json in d["questions"]:
+                q = Question(q_json["user_id"], q_json["qID"], q_json["questionText"], q_json["correctAnswers"],
+                             q_json["category"])
+                q.init_time = q_json["initTime"]
+                q.publish_time = q_json["publishTime"]
+                q.published = q_json["published"]
+                q.just_published = q_json["justPublished"]
+                q.answered_by = q_json["answeredBy"]
+                q.guesses = q_json["guesses"]
 
-                self.questionList.append(q)
+                self.question_list.append(q)
 
-    def backUpData(self):
+    @staticmethod
+    def back_up_data():
         data = {}
 
         file = open(QUESTIONS_FILE_NAME)
@@ -165,293 +171,294 @@ class QuestionKeeper:
 
         return data
 
-            
-    #This is run every time a change occurs to the questionsList data (adding, removing, publishing, guesses being made, etc).
-    #   If the bot crashes at any point, we shouldn't lose too much history.
-    #   This comes at the cost of frequent write operations, which get costly as the number of questions active at one time grows
-    def writeQuestionsToFile(self):
-        questionsJson = {"questions" : []}
+    # This is run every time a change occurs to the questionsList data (adding, removing, publishing, guesses being
+    # made, etc). If the bot crashes at any point, we shouldn't lose too much history. This comes at the cost of
+    # frequent write operations, which get costly as the number of questions active at one time grows
+    def write_questions_to_file(self):
+        questions_json = {"questions": []}
 
-        for q in self.questionList:
-            questionsJson["questions"].append(vars(q))
+        for q in self.question_list:
+            questions_json["questions"].append(vars(q))
 
-        tempfile = NamedTemporaryFile(delete=False)
         with open(QUESTIONS_FILE_NAME, 'w') as tempfile:
-            json.dump(questionsJson, tempfile, indent = 4)
+            json.dump(questions_json, tempfile, indent=4)
 
         shutil.move(tempfile.name, QUESTIONS_FILE_NAME)
 
-    #When questions expire (not get removed), we insert them into the running history of questions in a persistent file
-    def writeRemovedQuestionsToFile(self, removedQuestionsList: List[Question]):
+    # When questions expire (not get removed), we insert them into the running history of questions in a persistent file
+    @staticmethod
+    def write_removed_questions_to_file(removed_questions_list: List[Question]):
         try:
             file = open(OLD_QUESTIONS_FILE_NAME)
-            questionsJson = json.load(file)
+            questions_json = json.load(file)
         except IOError:
             # If not exists, create the file
-            questionsJson = {"oldQuestions" : []}
-            file = open(OLD_QUESTIONS_FILE_NAME,"w+")
-            json.dump(questionsJson, file, indent = 4)
+            questions_json = {"oldQuestions": []}
+            file = open(OLD_QUESTIONS_FILE_NAME, "w+")
+            json.dump(questions_json, file, indent=4)
         file.close()
-        
-        for q in removedQuestionsList:
-            questionsJson["oldQuestions"].insert(0, vars(q))
 
-        tempfile = NamedTemporaryFile(delete=False)
+        for q in removed_questions_list:
+            questions_json["oldQuestions"].insert(0, vars(q))
+
         with open(OLD_QUESTIONS_FILE_NAME, 'w') as tempfile:
-            json.dump(questionsJson, tempfile, indent = 4)
+            json.dump(questions_json, tempfile, indent=4)
 
         shutil.move(tempfile.name, OLD_QUESTIONS_FILE_NAME)
 
-    def addQuestion(self, userID: str, qID: str, questionText: str, correctAnswers: List[str] = []) -> bool:
-        qID, category = splitCategory(qID)
+    def add_question(self, user_id: str, q_id: str, question_text: str, correct_answers=None) -> bool:
+        if correct_answers is None:
+            correct_answers = []
+        q_id, category = split_category(q_id)
 
-        #prevent duplicate IDs
-        for q in self.questionList:
-            if qID.lower() == q.qID.lower():
+        # prevent duplicate IDs
+        for q in self.question_list:
+            if q_id.lower() == q.q_id.lower():
                 return False
-        
-        self.questionList.append(Question(userID, qID, questionText, correctAnswers, category))
 
-        #save new data
-        self.writeQuestionsToFile()
+        self.question_list.append(Question(user_id, q_id, question_text, correct_answers, category))
+
+        # save new data
+        self.write_questions_to_file()
         return True
 
-    def removeQuestion(self, qID: str, userID: str) -> bool:
-        qID, category = splitCategory(qID)
+    def remove_question(self, q_id: str, user_id: str) -> bool:
+        q_id, category = split_category(q_id)
 
-        for q in self.questionList:
-            if qID.lower() == q.qID.lower() and (q.userID == userID or userID == "DEV"):
-                self.questionList.remove(q)
+        for q in self.question_list:
+            if q_id.lower() == q.q_id.lower() and (q.user_id == user_id or user_id == "DEV"):
+                self.question_list.remove(q)
 
                 # save new data
-                self.writeQuestionsToFile()
+                self.write_questions_to_file()
                 return True
         return False
 
-    #Adds a new allowed answer for a question. The userID must be the same as the user who submitted the Q
-    def addAnswer(self, userID: str, qID: str, newAnswer: str) -> bool:
-        qID, category = splitCategory(qID)
+    # Adds a new allowed answer for a question. The user_id must be the same as the user who submitted the Q
+    def add_answer(self, user_id: str, q_id: str, new_answer: str) -> bool:
+        q_id, category = split_category(q_id)
 
-        q = self.getUserQuestionByID(qID, userID)
+        q = self.get_user_question_by_id(q_id, user_id)
 
         if q:
-            q.addAnswer(newAnswer)
-            self.writeQuestionsToFile()
+            q.add_answer(new_answer)
+            self.write_questions_to_file()
             return True
         else:
             return False
 
-    #Complementary to addAnswer
-    def removeAnswer(self, userID: str, qID: str, existingAnswer: str) -> bool:
-        qID, category = splitCategory(qID)
+    # Complementary to add_answer
+    def remove_answer(self, user_id: str, q_id: str, existing_answer: str) -> bool:
+        q_id, category = split_category(q_id)
 
-        q = self.getUserQuestionByID(qID, userID)
+        q = self.get_user_question_by_id(q_id, user_id)
 
-        if q and q.removeAnswer(existingAnswer):
-            self.writeQuestionsToFile()
+        if q and q.remove_answer(existing_answer):
+            self.write_questions_to_file()
             return True
         else:
             return False
 
-    def setQuestionText(self, userID: str, qID: str, newQuestionText: str) -> bool:
-        qID, category = splitCategory(qID)
+    def set_question_text(self, user_id: str, q_id: str, new_question_text: str) -> bool:
+        q_id, category = split_category(q_id)
 
-        q = self.getUserQuestionByID(qID, userID)
-        if q and q.setQuestionText(newQuestionText):
-            self.writeQuestionsToFile()
+        q = self.get_user_question_by_id(q_id, user_id)
+        if q and q.set_question_text(new_question_text):
+            self.write_questions_to_file()
             return True
         else:
             return False
 
-    def addUserWhoAnswered(self, userID: str, qID: str) -> bool:
-        if self.getQuestionByID(qID).addUserWhoAnswered(userID):
-            self.writeQuestionsToFile()
+    def add_user_who_answered(self, user_id: str, q_id: str) -> bool:
+        if self.get_question_by_id(q_id).add_user_who_answered(user_id):
+            self.write_questions_to_file()
             return True
         return False
 
-    def getQuestionByID(self, qID: str) -> Optional[Question]:
-        qID, category = splitCategory(qID)
+    def get_question_by_id(self, q_id: str) -> Optional[Question]:
+        q_id, category = split_category(q_id)
 
-        for q in self.questionList:
-            if qID.lower() == q.qID.lower():
+        for q in self.question_list:
+            if q_id.lower() == q.q_id.lower():
                 return q
 
         return None
 
-    #Gets a question only if it was submitted by the user in question, None otherwise
-    def getUserQuestionByID(self, qID: str, userID: str) -> Optional[Question]:
-        qID, category = splitCategory(qID)
-        qID = qID.lower()
+    # Gets a question only if it was submitted by the user in question, None otherwise
+    def get_user_question_by_id(self, q_id: str, user_id: str) -> Optional[Question]:
+        q_id, category = split_category(q_id)
+        q_id = q_id.lower()
 
-        for q in self.questionList:
-            if qID == q.qID.lower() and (q.userID == userID or userID == "DEV"):
+        for q in self.question_list:
+            if q_id == q.q_id.lower() and (q.user_id == user_id or user_id == "DEV"):
                 return q
 
         return None
 
-    def getSubmitterByQID(self, qID: str) -> Optional[str]:
-        q = self.getQuestionByID(qID)
+    def get_submitter_by_q_id(self, q_id: str) -> Optional[str]:
+        q = self.get_question_by_id(q_id)
         if q:
-            return q.userID
+            return q.user_id
         else:
             return None
 
-    #Checks for answer correctness when possible, and returns a string based on how it went.
-    #There are many possibilities here. If Python had enums, this would be a little bit cleaner
-    def checkAnswer(self, userID: str, qID: str, inputAnswer: str) -> str:
-        q = self.getQuestionByID(qID)
+    # Checks for answer correctness when possible, and returns a string based on how it went.
+    # There are many possibilities here. If Python had enums, this would be a little bit cleaner
+    def check_answer(self, user_id: str, q_id: str, input_answer: str) -> str:
+        q = self.get_question_by_id(q_id)
         if q and q.published:
-            #Don't allow guesses after someone has answered already
-            if userID in q.answeredBy:
+            # Don't allow guesses after someone has answered already
+            if user_id in q.answered_by:
                 return "already answered"
 
-            #We want to let users give up on a question,
+            # We want to let users give up on a question,
             #   but thanks to a pesky user demanding that it be possible to have a question
             #   with "I give up" as its answer, we need to make sure we don't interpret a correct answer
             #   as the user giving up
-            if inputAnswer.lower() in ["i give up", "give up", "giveup", "igiveup"] and not q.validateAnswer(inputAnswer):
-                q.guesses[userID] = MAX_GUESSES
-                self.writeQuestionsToFile()
+            if input_answer.lower() in ["i give up", "give up", "giveup", "igiveup"] and not q.validate_answer(
+                    input_answer):
+                q.guesses[user_id] = MAX_GUESSES
+                self.write_questions_to_file()
                 return "gave up"
 
-            #If we've made it to a point where the user is successfully attempting a guess, increment the counter
-            if userID in q.guesses:
-                q.guesses[userID] += 1
+            # If we've made it to a point where the user is successfully attempting a guess, increment the counter
+            if user_id in q.guesses:
+                q.guesses[user_id] += 1
             else:
-                q.guesses[userID] = 1
+                q.guesses[user_id] = 1
 
-            #Don't allow guesses beyond the max number allowed
-            if q.guesses[userID] >= MAX_GUESSES + 1:
-                self.writeQuestionsToFile()
+            # Don't allow guesses beyond the max number allowed
+            if q.guesses[user_id] >= MAX_GUESSES + 1:
+                self.write_questions_to_file()
                 return "max guesses"
-            #Manual question validation is a feature in progress, but we still allow it
-            elif q.correctAnswers == []:
-                self.writeQuestionsToFile()
+            # Manual question validation is a feature in progress, but we still allow it
+            elif not q.correct_answers:
+                self.write_questions_to_file()
                 return "needs manual"
-            #Finally, we can check if the answer is actually right
-            elif q.checkAnswer(userID, inputAnswer):
-                self.writeQuestionsToFile()
+            # Finally, we can check if the answer is actually right
+            elif q.check_answer(user_id, input_answer):
+                self.write_questions_to_file()
                 return "correct"
 
-            self.writeQuestionsToFile()
+            self.write_questions_to_file()
             return "incorrect"
         return "not found"
 
-    def listQuestions(self) -> str:
+    def list_questions(self) -> str:
         output = ""
-        for q in self.questionList:
+        for q in self.question_list:
             if q.published:
-                output += q.prettyPrint() + "\n"
+                output += q.pretty_print() + "\n"
         return output
 
-    #When a user asks to see the questions in a private channel,
+    # When a user asks to see the questions in a private channel,
     #   we want to show them a bullet point before every question that they could still attempt
     #   Thus:
     #       -They haven't answered it already
     #       -They weren't the one to submit it
     #       -They haven't reached the max number of guesses
-    def listQuestionsPrivate(self, userID: str) -> str:
+    def list_questions_private(self, user_id: str) -> str:
         output = ""
-        for q in self.questionList:
+        for q in self.question_list:
             if q.published:
-                if userID not in q.answeredBy \
-                  and userID != q.userID \
-                  and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
+                if user_id not in q.answered_by \
+                        and user_id != q.user_id \
+                        and (user_id not in q.guesses or q.guesses[user_id] < MAX_GUESSES):
                     output += "● "
-                output += q.prettyPrint() + "\n"
+                output += q.pretty_print() + "\n"
         return output
 
-    #Same as listQuestionsPrivate, except we just omit the questions that wouldn't have had a bullet point
-    def listIncompleteQuestionsPrivate(self, userID: str) -> str:
+    # Same as listQuestionsPrivate, except we just omit the questions that wouldn't have had a bullet point
+    def list_incomplete_questions_private(self, user_id: str) -> str:
         output = ""
-        for q in self.questionList:
+        for q in self.question_list:
             if q.published \
-                    and userID not in q.answeredBy \
-                    and (userID not in q.guesses or q.guesses[userID] < MAX_GUESSES):
-                output += q.prettyPrint() + "\n"
+                    and user_id not in q.answered_by \
+                    and (user_id not in q.guesses or q.guesses[user_id] < MAX_GUESSES):
+                output += q.pretty_print() + "\n"
         return output
 
-    #Called by `my-questions`. Displays a user's questions with answers
-    def listQuestionsByUser(self, userID: str) -> str:
+    # Called by `my-questions`. Displays a user's questions with answers
+    def list_questions_by_user(self, user_id: str) -> str:
         output = ""
-        for q in self.questionList:
-            if q.userID == userID:
-                output += q.prettyPrintWithAnswer() + (" (published)" if q.published else "") + "\n"
+        for q in self.question_list:
+            if q.user_id == user_id:
+                output += q.pretty_print_with_answer() + (" (published)" if q.published else "") + "\n"
         return output
 
-    #Expires all questions over a certain age (right now we're using 18 hours) from a specific user.
-    #Returns a list of questions that got expired
-    def expireQuestions(self, userID: str) -> List[Question]:
-        questionsExpired = []
-        for q in self.questionList:
-            if q.timeToExpire() and q.userID == userID:
+    # Expires all questions over a certain age (right now we're using 18 hours) from a specific user.
+    # Returns a list of questions that got expired
+    def expire_questions(self, user_id: str) -> List[Question]:
+        questions_expired = []
+        for q in self.question_list:
+            if q.time_to_expire() and q.user_id == user_id:
                 q.expireTime = time.time()
-                questionsExpired.append(q)
+                questions_expired.append(q)
 
-        self.questionList = [q for q in self.questionList if q not in questionsExpired]
-        
-        self.writeQuestionsToFile()
-        self.writeRemovedQuestionsToFile(questionsExpired)
+        self.question_list = [q for q in self.question_list if q not in questions_expired]
 
-        return questionsExpired
+        self.write_questions_to_file()
+        self.write_removed_questions_to_file(questions_expired)
 
-    #Publishes one question
-    #Should be made user-exclusive in the future
-    def publishByID(self, qID: str) -> str:
-        q = self.getQuestionByID(qID)
+        return questions_expired
+
+    # Publishes one question
+    # Should be made user-exclusive in the future
+    def publish_by_id(self, q_id: str) -> str:
+        q = self.get_question_by_id(q_id)
         if q:
             if q.publish():
-                self.writeQuestionsToFile()
+                self.write_questions_to_file()
                 return "published"
             else:
                 return "already published"
         else:
             return "notFound"
 
-    def publishAllByUser(self, userID: str):
-        for q in self.questionList:
-            if q.userID == userID:
+    def publish_all_by_user(self, user_id: str):
+        for q in self.question_list:
+            if q.user_id == user_id:
                 q.publish()
-        self.writeQuestionsToFile()
+        self.write_questions_to_file()
 
-    #When a question/questions get published
-    def firstTimeDisplay(self) -> str:
+    # When a question/questions get published
+    def first_time_display(self) -> str:
         output = ""
-        for q in self.questionList:
-            if q.justPublished:
-                q.justPublished = False
-                output += q.prettyPrint() + "\n"
-        self.writeQuestionsToFile()
+        for q in self.question_list:
+            if q.just_published:
+                q.just_published = False
+                output += q.pretty_print() + "\n"
+        self.write_questions_to_file()
         return output
 
-    #Reads from the questions history file, and returns a string of displayed question that expired less than 24 hours ago
-    def getOldQuestionsString(self) -> str:
+    # Reads from the questions history file, and returns a string of displayed question that expired less than 24
+    # hours ago
+    @staticmethod
+    def get_old_questions_string() -> str:
         try:
             file = open(OLD_QUESTIONS_FILE_NAME)
-            oldQuestions = json.load(file)
+            old_questions = json.load(file)
         except IOError:
             # If not exists, create the file
-            oldQuestions = {"oldQuestions" : []}
-            file = open(OLD_QUESTIONS_FILE_NAME,"w+")
-            json.dump(oldQuestions, file, indent = 4)
+            old_questions = {"oldQuestions": []}
+            file = open(OLD_QUESTIONS_FILE_NAME, "w+")
+            json.dump(old_questions, file, indent=4)
         file.close()
 
         now = time.time()
-        elapsedTime = 60 * 60 * 24  #24 hours
+        elapsed_time = 60 * 60 * 24  # 24 hours
         response = ""
 
-        for q in oldQuestions["oldQuestions"]:
-            #Questions are inserted at the beginning of the data
-            #So it's sorted newer to older
-            #Thus if we hit a question older than 24hrs, we can stop searching
-            if (now - q["expireTime"]) > elapsedTime:
+        for q in old_questions["oldQuestions"]:
+            # Questions are inserted at the beginning of the data
+            # So it's sorted newer to older
+            # Thus if we hit a question older than 24hrs, we can stop searching
+            if (now - q["expireTime"]) > elapsed_time:
                 break
             response += "" if q["category"] == "" else (q["category"] + " ")
-            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + (" : ".join(q["correctAnswers"]) if len(q["correctAnswers"]) > 0 else "(no answer given)")
+            response += "(" + q["qID"] + "): " + q["questionText"] + " : " + (
+                " : ".join(q["correctAnswers"]) if len(q["correctAnswers"]) > 0 else "(no answer given)")
 
             response += "\n"
 
         return response
-
-
-

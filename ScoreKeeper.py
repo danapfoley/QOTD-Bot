@@ -1,112 +1,113 @@
 import csv
-from tempfile import NamedTemporaryFile
 import shutil
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 SCORES_FILE_NAME = "scores.csv"
+
 
 def to_int(s):
     s = str(s).strip()
     return int(s) if s else 0
 
+
 class ScoreKeeper:
-    def __init__(self, slackClient):
-        self.slackClient = slackClient
+    def __init__(self, slack_client):
+        self.slackClient = slack_client
         self.data = []
-        self.todayRowNum = -1  #error value
-        self.totalsRowNum = 2  #manually chosen
-        self.userIDRowNum = 0  #manually chosen
-        self.userNameRowNum = 1  #manually chosen
+        self.today_row_num = -1  # error value
+        self.totals_row_num = 2  # manually chosen
+        self.user_id_row_num = 0  # manually chosen
+        self.user_name_row_num = 1  # manually chosen
 
-        self.getDataFromFile()
-        self.catchUpDateRows()
+        self.get_data_from_file()
+        self.catch_up_date_rows()
 
-    def getTodayScores(self) -> str:
-        scoresList = []
-        todayScores = self.data[self.todayRowNum]
-        for column, score in enumerate(todayScores):
+    def get_today_scores(self) -> str:
+        scores_list = []
+        today_scores = self.data[self.today_row_num]
+        for column, score in enumerate(today_scores):
             if column == 0:
                 continue
             if score != "":
-                 scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
-        if len(scoresList) > 0:
-            scoresList.sort(key=lambda s: s.lower())
-            return "*Today's scores*:\n" + "\n".join(scoresList) + "\n\n"
+                scores_list.append(self.data[self.user_name_row_num][column] + " - " + str(score))
+        if len(scores_list) > 0:
+            scores_list.sort(key=lambda s: s.lower())
+            return "*Today's scores*:\n" + "\n".join(scores_list) + "\n\n"
         else:
             return "No new scores from today.\n"
 
-    def getTodayScoresRanked(self) -> str:
-        scoresList = []
-        todayScores = self.data[self.todayRowNum]
-        for column, score in enumerate(todayScores):
+    def get_today_scores_ranked(self) -> str:
+        scores_list = []
+        today_scores = self.data[self.today_row_num]
+        for column, score in enumerate(today_scores):
             if column == 0:
                 continue
             if score != "":
-                 scoresList.append((int(score), self.data[self.userNameRowNum][column]))
-        if len(scoresList) > 0:
-            scoresList.sort(reverse = True)
-            for idx, tuple in enumerate(scoresList):
-                user = tuple[1]
-                score = tuple[0]
+                scores_list.append((int(score), self.data[self.user_name_row_num][column]))
+        if len(scores_list) > 0:
+            scores_list.sort(reverse=True)
+            for idx, tupl in enumerate(scores_list):
+                user = tupl[1]
+                score = tupl[0]
 
-                scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
+                scores_list[idx] = str(idx + 1) + ": " + user + " - " + str(score)
 
-            return "*Today's scores*:\n" + "\n".join(scoresList) + "\n\n"
+            return "*Today's scores*:\n" + "\n".join(scores_list) + "\n\n"
         else:
             return "No new scores from today.\n"
 
-    def getTotalScores(self) -> str:
-        scoresList = []
-        totalScores = self.data[self.totalsRowNum]
-        for column, score in enumerate(totalScores):
+    def get_total_scores(self) -> str:
+        scores_list = []
+        total_scores = self.data[self.totals_row_num]
+        for column, score in enumerate(total_scores):
             if column == 0:
                 continue
             if score != "" and str(score) != "0":
-                 scoresList.append(self.data[self.userNameRowNum][column] + " - " + str(score))
-        
-        scoresList.sort(key=lambda s: s.lower())
-        return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
+                scores_list.append(self.data[self.user_name_row_num][column] + " - " + str(score))
 
-    def getTotalScoresRanked(self) -> str:
-        scoresList = []
-        totalScores = self.data[self.totalsRowNum]
-        for column, score in enumerate(totalScores):
+        scores_list.sort(key=lambda s: s.lower())
+        return "*Total scores from this month*:\n" + "\n".join(scores_list) + "\n"
+
+    def get_total_scores_ranked(self) -> str:
+        scores_list = []
+        total_scores = self.data[self.totals_row_num]
+        for column, score in enumerate(total_scores):
             if column == 0:
                 continue
             if score != "" and str(score) != "0":
-                scoresList.append((int(score), self.data[self.userNameRowNum][column]))
-        
-        scoresList.sort(reverse = True)
-        for idx, tuple in enumerate(scoresList):
-            user = tuple[1]
-            score = tuple[0]
+                scores_list.append((int(score), self.data[self.user_name_row_num][column]))
 
-            scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
-        return "*Total scores from this month*:\n" + "\n".join(scoresList) + "\n"
+        scores_list.sort(reverse=True)
+        for idx, tupl in enumerate(scores_list):
+            user = tupl[1]
+            score = tupl[0]
 
-    def getUserScores(self, userID: str) -> str:
+            scores_list[idx] = str(idx + 1) + ": " + user + " - " + str(score)
+        return "*Total scores from this month*:\n" + "\n".join(scores_list) + "\n"
+
+    def get_user_scores(self, user_id: str) -> str:
         output = ""
-        todayScore = ""
-        totalScore = ""
+        today_score = ""
+        total_score = ""
+        column = None
 
-        if self.userExists(userID):
-            column = self.getUserColumnNum(userID)
-            todayScore = str(self.data[self.todayRowNum][column])
-            totalScore = str(self.data[self.totalsRowNum][column])
+        if self.user_exists(user_id):
+            column = self.get_user_column_num(user_id)
+            today_score = str(self.data[self.today_row_num][column])
+            total_score = str(self.data[self.totals_row_num][column])
 
-        if todayScore != "":
-            output += self.data[self.userNameRowNum][column] + "'s points from today: " + todayScore + '\n'
-        if totalScore != "":
-            output += self.data[self.userNameRowNum][column] + "'s total points: " + totalScore
-            
+        if today_score != "":
+            output += self.data[self.user_name_row_num][column] + "'s points from today: " + today_score + '\n'
+        if total_score != "":
+            output += self.data[self.user_name_row_num][column] + "'s total points: " + total_score
+
         if output == "":
             output = "I couldn't find any score data for that user"
 
         return output
-        
-    def updateFileWithData(self):
-        tempfile = NamedTemporaryFile(delete=False)
+
+    def update_file_with_data(self):
         with open(SCORES_FILE_NAME, 'w', newline='') as tempfile:
             writer = csv.writer(tempfile)
 
@@ -115,129 +116,128 @@ class ScoreKeeper:
 
         shutil.move(tempfile.name, SCORES_FILE_NAME)
 
-    def catchUpDateRows(self):
-        
-        rowLength = len(self.data[0])
+    def catch_up_date_rows(self):
+
+        row_length = len(self.data[0])
 
         today = datetime.today().date()
-        lastDate = datetime.strptime(self.data[-1][0], "%m/%d/%Y").date()
+        last_date = datetime.strptime(self.data[-1][0], "%m/%d/%Y").date()
 
-        if today.month > lastDate.month:
-            self.announceMontlyWinners(lastDate.strftime("%B"))
+        if today.month > last_date.month:
+            self.announce_montly_winners(last_date.strftime("%B"))
 
-        if lastDate < today:
-            needsCatchUp = True
+        if last_date < today:
+            needs_catch_up = True
         else:
-            needsCatchUp = False
+            needs_catch_up = False
 
-        while lastDate < today:
-            lastDate += timedelta(days=1)
-            self.data.append([lastDate.strftime("%m/%d/%Y")] + ([""] * rowLength))
+        while last_date < today:
+            last_date += timedelta(days=1)
+            self.data.append([last_date.strftime("%m/%d/%Y")] + ([""] * row_length))
 
-        if needsCatchUp:
-            self.calculateMonthlyTotals()
-            self.updateFileWithData()
+        if needs_catch_up:
+            self.calculate_monthly_totals()
+            self.update_file_with_data()
 
-            self.todayRowNum = len(self.data) - 1
-        
-    def userExists(self, userID: str) -> bool:
-        return userID in self.data[self.userIDRowNum]
+            self.today_row_num = len(self.data) - 1
 
-    def getUserColumnNum(self, userID: str) -> int:
-        if userID in self.data[self.userIDRowNum]:
-            return self.data[self.userIDRowNum].index(userID)
+    def user_exists(self, user_id: str) -> bool:
+        return user_id in self.data[self.user_id_row_num]
+
+    def get_user_column_num(self, user_id: str) -> int:
+        if user_id in self.data[self.user_id_row_num]:
+            return self.data[self.user_id_row_num].index(user_id)
         else:
             return -1
 
-    def getUserNameInScoreSheet(self, userID: str) -> Optional[str]:
-        column = self.getUserColumnNum(userID)
+    def get_user_name_in_score_sheet(self, user_id: str) -> Optional[str]:
+        column = self.get_user_column_num(user_id)
 
         if column != -1:
-            return self.data[self.userNameRowNum][column]
+            return self.data[self.user_name_row_num][column]
         else:
             return None
 
-    def setUserNameInScoreSheet(self, userID: str, newName: str):
-        column = self.getUserColumnNum(userID)
+    def set_user_name_in_score_sheet(self, user_id: str, new_name: str):
+        column = self.get_user_column_num(user_id)
 
         if column != -1:
-            self.data[self.userNameRowNum][column] = newName
+            self.data[self.user_name_row_num][column] = new_name
             return True
         else:
             return False
 
-    def addNewUser(self, userID: str):
+    def add_new_user(self, user_id: str):
         for idx, row in enumerate(self.data):
             self.data[idx].append("")
-        self.data[self.totalsRowNum][-1] = 0
-        self.data[self.userIDRowNum][-1] = userID
+        self.data[self.totals_row_num][-1] = 0
+        self.data[self.user_id_row_num][-1] = user_id
 
-    def addNameToUser(self, userID: str, userName: str):
-        columnNum = self.getUserColumnNum(userID)
-        self.data[self.userNameRowNum][columnNum] = userName
+    def add_name_to_user(self, user_id: str, user_name: str):
+        column_num = self.get_user_column_num(user_id)
+        self.data[self.user_name_row_num][column_num] = user_name
 
-    def addUserPoint(self, userID: str):
-        self.addUserPoints(userID, 1)
+    def add_user_point(self, user_id: str):
+        self.add_user_points(user_id, 1)
 
-    def addUserPoints(self, userID: str, numPoints: int):
-        
-        self.catchUpDateRows()
+    def add_user_points(self, user_id: str, num_points: int):
 
-        columnNum = self.getUserColumnNum(userID)
-        if columnNum == -1:
-            self.addNewUser(userID)
-            columnNum = self.getUserColumnNum(userID)
-        if self.data[self.todayRowNum][columnNum] == "":
-            self.data[self.todayRowNum][columnNum] = 0
+        self.catch_up_date_rows()
 
-        self.data[self.todayRowNum][columnNum]  = int(self.data[self.todayRowNum][columnNum]) + numPoints
-        self.data[self.totalsRowNum][columnNum] = int(self.data[self.totalsRowNum][columnNum]) + numPoints
-        self.updateFileWithData()
+        column_num = self.get_user_column_num(user_id)
+        if column_num == -1:
+            self.add_new_user(user_id)
+            column_num = self.get_user_column_num(user_id)
+        if self.data[self.today_row_num][column_num] == "":
+            self.data[self.today_row_num][column_num] = 0
 
-    def getDataFromFile(self):
+        self.data[self.today_row_num][column_num] = int(self.data[self.today_row_num][column_num]) + num_points
+        self.data[self.totals_row_num][column_num] = int(self.data[self.totals_row_num][column_num]) + num_points
+        self.update_file_with_data()
+
+    def get_data_from_file(self):
         file = open(SCORES_FILE_NAME, "r")
         self.data = list(csv.reader(file))
         file.close()
 
-    def backUpData(self):
+    @staticmethod
+    def back_up_data():
         file = open(SCORES_FILE_NAME, "r")
         scores = file.read()
         file.close()
         return scores
 
-    def announceMontlyWinners(self, monthName: str):
-        scoresList = []
-        totalScores = self.data[self.totalsRowNum]
-        for column, score in enumerate(totalScores):
+    def announce_montly_winners(self, month_name: str):
+        scores_list = []
+        total_scores = self.data[self.totals_row_num]
+        for column, score in enumerate(total_scores):
             if column == 0:
                 continue
             if score != "" and str(score) != "0":
-                scoresList.append((int(score), self.data[self.userNameRowNum][column]))
+                scores_list.append((int(score), self.data[self.user_name_row_num][column]))
 
-        scoresList.sort(reverse=True)
-        scoresList = scoresList[:min(3, len(scoresList))]
-        for idx, tuple in enumerate(scoresList):
-            user = tuple[1]
-            score = tuple[0]
+        scores_list.sort(reverse=True)
+        scores_list = scores_list[:min(3, len(scores_list))]
+        for idx, tupl in enumerate(scores_list):
+            user = tupl[1]
+            score = tupl[0]
 
-            scoresList[idx] = str(idx + 1) + ": " + user + " - " + str(score)
+            scores_list[idx] = str(idx + 1) + ": " + user + " - " + str(score)
 
-        self.slackClient.say("DEPLOY_CHANNEL", "Winners from " + monthName + "!\n" + "\n".join(scoresList) + "\n")
+        self.slackClient.say("DEPLOY_CHANNEL", "Winners from " + month_name + "!\n" + "\n".join(scores_list) + "\n")
 
-    def calculateMonthlyTotals(self):
-        todayMonth = int(self.data[self.todayRowNum][0].split("/")[0])
+    def calculate_monthly_totals(self):
+        today_month = int(self.data[self.today_row_num][0].split("/")[0])
 
-        tempRow = self.todayRowNum
-        tempMonth = todayMonth
+        temp_row = self.today_row_num
+        temp_month = today_month
 
-        totals = [0] * (len(self.data[tempRow]) -1)
+        totals = [0] * (len(self.data[temp_row]) - 1)
 
-        while tempMonth == todayMonth:
-            totals = [sum(x) for x in zip(totals, [to_int(s) for s in self.data[tempRow][1:]])]
-            tempRow -= 1
-            tempMonth = int(self.data[tempRow][0].split("/")[0])
+        while temp_month == today_month:
+            totals = [sum(x) for x in zip(totals, [to_int(s) for s in self.data[temp_row][1:]])]
+            temp_row -= 1
+            temp_month = int(self.data[temp_row][0].split("/")[0])
 
-        self.data[self.totalsRowNum][1:] = totals
-        self.updateFileWithData()
-
-
+        self.data[self.totals_row_num][1:] = totals
+        self.update_file_with_data()
